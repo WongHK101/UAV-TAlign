@@ -13,7 +13,8 @@ WORKLOG.md
 .env
 
 # Runtime outputs and datasets
-datasets/
+UAV-TAlign-6K/
+UAV-TAlign-1K/
 data/
 runs/
 outputs/
@@ -43,6 +44,7 @@ third_party/MINIMA/data/
 third_party/MINIMA/third_party/**/assets/
 third_party/MINIMA/third_party/**/.git
 third_party/MINIMA/third_party/**/.gitmodules
+third_party/MINIMA/third_party/**/datasets/
 third_party/MINIMA/third_party/**/weights/
 third_party/MINIMA/third_party/**/*.ipynb
 third_party/MINIMA/third_party/**/*.jpg
