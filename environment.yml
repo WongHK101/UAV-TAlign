@@ -1,0 +1,28 @@
+name: uav-talign
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - pillow
+  - pyyaml
+  - h5py
+  - pytorch
+  - torchvision
+  - pytorch-cuda=11.8
+  - pip:
+      - opencv-python
+      - kornia
+      - einops
+      - matplotlib
+      - tqdm
+      - loguru
+      - yacs
+      - joblib
+      - pytorch-lightning
+      - timm

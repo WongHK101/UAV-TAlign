@@ -1,0 +1,17 @@
+numpy
+opencv-python
+pillow
+scipy
+torch
+torchvision
+kornia
+einops
+matplotlib
+tqdm
+pyyaml
+h5py
+loguru
+yacs
+joblib
+pytorch-lightning
+timm

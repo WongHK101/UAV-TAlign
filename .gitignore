@@ -1,0 +1,51 @@
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local collaboration and secrets
+AGENTS.md
+WORKLOG.md
+.env
+
+# Runtime outputs and datasets
+datasets/
+data/
+runs/
+outputs/
+out/
+rectified/
+prepared/
+review_artifacts/
+
+# Model weights and large binary assets
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.bin
+*.safetensors
+*.zip
+*.tar
+*.tar.gz
+*.7z
+
+# Vendored MINIMA runtime payloads kept local/server-side only.
+third_party/MINIMA/weights/
+third_party/MINIMA/.gitmodules
+third_party/MINIMA/assets/
+third_party/MINIMA/demo/
+third_party/MINIMA/data/
+third_party/MINIMA/third_party/**/assets/
+third_party/MINIMA/third_party/**/.git
+third_party/MINIMA/third_party/**/.gitmodules
+third_party/MINIMA/third_party/**/weights/
+third_party/MINIMA/third_party/**/*.ipynb
+third_party/MINIMA/third_party/**/*.jpg
+third_party/MINIMA/third_party/**/*.jpeg
+third_party/MINIMA/third_party/**/*.png
+third_party/MINIMA/third_party/**/*.gif
