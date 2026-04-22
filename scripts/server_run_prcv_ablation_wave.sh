@@ -2,9 +2,11 @@
 set -u
 set -o pipefail
 
-REPO_ROOT="${REPO_ROOT:-/home/user2/whk/UAV-TAlign}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEFAULT_REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="${REPO_ROOT:-$DEFAULT_REPO_ROOT}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/outputs}"
-CONDA_BIN="${CONDA_BIN:-/home/user2/anaconda3/bin/conda}"
+CONDA_BIN="${CONDA_BIN:-$HOME/anaconda3/bin/conda}"
 ENV_NAME="${ENV_NAME:-uav-talign}"
 GPU0_IDLE_MEM_MAX_MB="${GPU0_IDLE_MEM_MAX_MB:-1024}"
 GPU0_IDLE_UTIL_MAX="${GPU0_IDLE_UTIL_MAX:-15}"

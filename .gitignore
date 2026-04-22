@@ -23,6 +23,10 @@ rectified/
 prepared/
 review_artifacts/
 
+# Internal drafting and writing handoff materials
+/docs/
+/build_prcv_p0_drafts.py
+
 # Model weights and large binary assets
 *.pth
 *.pt
