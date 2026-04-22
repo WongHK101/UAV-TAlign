@@ -4,6 +4,15 @@ import torch
 from copy import deepcopy
 
 
+def _resolve_torch_device(requested_device=None):
+    if requested_device is not None and str(requested_device).strip():
+        device = torch.device(str(requested_device).strip())
+        if device.type == 'cuda' and not torch.cuda.is_available():
+            return torch.device('cpu')
+        return device
+    return torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
+
+
 def load_roma(args, test_orginal_megadepth=False):
     import sys
     sys.path.append("./third_party/RoMa_minima/")
@@ -16,7 +25,7 @@ def load_roma(args, test_orginal_megadepth=False):
     from src.utils.data_io_roma import DataIOWrapper, lower_config
     config = get_cfg_defaults(inference=True)
     config = lower_config(config)
-    device = torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
+    device = _resolve_torch_device(getattr(args, 'device', None))
     if args.ckpt2 == 'large':
         # print('loading large roma model')
         if args.ckpt is not None:
@@ -29,7 +38,7 @@ def load_roma(args, test_orginal_megadepth=False):
     else:
         # print('loading tiny roma model')
         matcher = tiny_roma_v1_outdoor(device=device)
-    matcher = DataIOWrapper(matcher, config=config["test"])
+    matcher = DataIOWrapper(matcher, config=config["test"], device=device)
     logging.info(config["test"])
     return matcher
 
@@ -55,8 +64,9 @@ def load_loftr(args, test_orginal_megadepth=False):
     matcher = LoFTR(config=_default_cfg)
     matcher.load_state_dict(torch.load(args.ckpt)['state_dict'], strict=True)
     matcher = matcher.eval()
+    device = _resolve_torch_device(getattr(args, 'device', None))
 
-    matcher = DataIOWrapper(matcher, config=config["test"])
+    matcher = DataIOWrapper(matcher, config=config["test"], device=device)
     logging.info(config["test"])
     return matcher
 
@@ -69,11 +79,12 @@ def load_sp_lg(args, test_orginal_megadepth=False):
     else:
         from src.config.default import get_cfg_defaults
     from src.utils.data_io_sp_lg import DataIOWrapper, lower_config
+    device = _resolve_torch_device(getattr(args, 'device', None))
 
     class Matching(torch.nn.Module):
-        def __init__(self, sp_conf, lg_conf):
+        def __init__(self, sp_conf, lg_conf, device):
             super().__init__()
-            device = torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
+            self.device = device
             self.extractor = SuperPoint(**sp_conf).eval().to(device)  # load the feature extractor
             self.matcher = LightGlue(features='superpoint', **lg_conf).eval().to(device)  # load the matcher
             n_layers = lg_conf['n_layers']
@@ -132,10 +143,10 @@ def load_sp_lg(args, test_orginal_megadepth=False):
         "filter_threshold": 0.1,  # match threshold
         "weights": None,
     }
-    matcher = Matching(sp_conf, lg_conf)
+    matcher = Matching(sp_conf, lg_conf, device=device)
     config = get_cfg_defaults(inference=True)
     config = lower_config(config)
-    matcher = DataIOWrapper(matcher, config=config["test"])
+    matcher = DataIOWrapper(matcher, config=config["test"], device=device)
     logging.info(config["test"])
     return matcher
 
@@ -150,7 +161,8 @@ def load_xoftr(args):
     config["xoftr"]["fine"]["thr"] = args.fine_threshold
     ckpt = args.ckpt
     matcher = XoFTR(config=config["xoftr"])
-    matcher = DataIOWrapper(matcher, config=config["test"], ckpt=ckpt)
+    device = _resolve_torch_device(getattr(args, 'device', None))
+    matcher = DataIOWrapper(matcher, config=config["test"], ckpt=ckpt, device=device)
     logging.info(config["test"])
     return matcher
 

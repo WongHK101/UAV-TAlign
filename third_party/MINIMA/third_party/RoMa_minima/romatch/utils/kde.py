@@ -3,8 +3,10 @@ import torch
 
 def kde(x, std = 0.1, half = True, down = None):
     # use a gaussian kernel to estimate density
-    if half:
+    if half and x.device.type == 'cuda':
         x = x.half() # Do it in half precision TODO: remove hardcoding
+    else:
+        x = x.float()
     if down is not None:
         scores = (-torch.cdist(x,x[::down])**2/(2*std**2)).exp()
     else:

@@ -4,6 +4,7 @@ pillow
 scipy
 torch
 torchvision
+albumentations
 kornia
 einops
 matplotlib
@@ -14,4 +15,7 @@ loguru
 yacs
 joblib
 pytorch-lightning
+torchmetrics
 timm
+poselib
+gdown

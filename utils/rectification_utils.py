@@ -260,7 +260,13 @@ def compute_structure_score(image: np.ndarray, max_dim: int = 1024) -> float:
     return float(np.mean(grad))
 
 
-def select_representative_frames(frame_records, max_frames, min_structure_score=None) -> list:
+def select_representative_frames(
+    frame_records,
+    max_frames,
+    min_structure_score=None,
+    selection_mode: str = "even",
+    seed: int = 0,
+) -> list:
     if not frame_records:
         return []
     needs_structure_score = min_structure_score is not None
@@ -287,9 +293,15 @@ def select_representative_frames(frame_records, max_frames, min_structure_score=
     if len(scored_records) <= max_frames:
         return scored_records
 
-    names = [item["frame_id"] for item in scored_records]
-    sampled = set(evenly_sample_items(names, max_frames))
-    selected = [item for item in scored_records if item["frame_id"] in sampled]
+    mode = str(selection_mode).strip().lower()
+    if mode == "random":
+        rng = np.random.default_rng(int(seed))
+        selected_indices = sorted(rng.choice(len(scored_records), size=int(max_frames), replace=False).tolist())
+        selected = [scored_records[idx] for idx in selected_indices]
+    else:
+        names = [item["frame_id"] for item in scored_records]
+        sampled = set(evenly_sample_items(names, max_frames))
+        selected = [item for item in scored_records if item["frame_id"] in sampled]
     if len(selected) > max_frames:
         selected = selected[:max_frames]
     return selected

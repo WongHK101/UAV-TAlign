@@ -46,10 +46,20 @@ def _load_manifest(scene_root: Path) -> Dict[str, object]:
     return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
-def _copy_rgb_sparse_to_scene(rgb_scene_root: Path, rectified_scene_root: Path) -> None:
+def _resolve_manifest_image_path(scene_root: Path, item: Dict[str, object]) -> Path:
+    source_path = str(item.get("source_path", "")).strip()
+    if source_path:
+        return Path(source_path)
+    image_name = str(item.get("image_name", "")).strip()
+    if not image_name:
+        raise KeyError(f"Manifest item is missing image_name/source_path under {scene_root}")
+    return scene_root / "images" / image_name
+
+
+def _copy_rgb_sparse_to_scene(rgb_scene_root: Path, rectified_scene_root: Path) -> bool:
     src = rgb_scene_root / "sparse" / "0"
     if not src.exists():
-        raise FileNotFoundError(f"Missing RGB sparse/0: {src}")
+        return False
     dst = rectified_scene_root / "sparse" / "0"
     if dst.parent.exists():
         shutil.rmtree(dst.parent)
@@ -57,10 +67,11 @@ def _copy_rgb_sparse_to_scene(rgb_scene_root: Path, rectified_scene_root: Path) 
     for item in src.iterdir():
         if item.is_file():
             shutil.copy2(item, dst / item.name)
+    return True
 
 
-def _rgb_target_size(rgb_scene_root: Path, image_name: str) -> Tuple[int, int]:
-    rgb_image_path = rgb_scene_root / "images" / image_name
+def _rgb_target_size(rgb_scene_root: Path, rgb_item: Dict[str, object]) -> Tuple[int, int]:
+    rgb_image_path = _resolve_manifest_image_path(rgb_scene_root, rgb_item)
     loaded = load_image_preserve_dtype(rgb_image_path)
     return loaded.width, loaded.height
 
@@ -123,7 +134,7 @@ def build_rectified_band_dataset(prepared_root: Path,
         image_name = str(item.get("image_name", "")).strip()
         if not image_name:
             continue
-        if not (rgb_scene_root / "images" / image_name).exists():
+        if not _resolve_manifest_image_path(rgb_scene_root, item).exists():
             skipped_missing_rgb_plane += 1
             continue
         rgb_items.append(item)
@@ -160,14 +171,14 @@ def build_rectified_band_dataset(prepared_root: Path,
 
         rect_scene_root = rectified_root / f"{band}_rectified"
         _clear_scene_root(rect_scene_root)
-        _copy_rgb_sparse_to_scene(rgb_scene_root, rect_scene_root)
+        has_rgb_sparse = _copy_rgb_sparse_to_scene(rgb_scene_root, rect_scene_root)
 
         scene_manifest = {
             "scene_name": f"{band}_rectified",
             "scene_root": str(rect_scene_root),
             "scene_kind": "rectified_band",
             "rectification_status": "rectified",
-            "trainable_with_rgb_sparse": True,
+            "trainable_with_rgb_sparse": bool(has_rgb_sparse),
             "modality_kind": "band",
             "target_band": band,
             "carrier_mode": "replicated_scalar_rgb",
@@ -185,9 +196,9 @@ def build_rectified_band_dataset(prepared_root: Path,
             if raw_item is None:
                 raise KeyError(f"Raw scene {raw_scene_root.name} missing frame {image_name}")
 
-            source_path = Path(str(raw_item.get("source_path") or (raw_scene_root / "images" / image_name)))
+            source_path = _resolve_manifest_image_path(raw_scene_root, raw_item)
             loaded = load_image_preserve_dtype(source_path)
-            target_size = _rgb_target_size(rgb_scene_root, image_name)
+            target_size = _rgb_target_size(rgb_scene_root, rgb_item)
             warped = _warp_raw_array(loaded.array, homography=homography, target_size=target_size)
             mask = build_validity_mask_from_warp(loaded.array.shape[:2], homography=homography, target_size=target_size)
             is_scalar = (loaded.channel_count == 1) or (np.asarray(warped).ndim == 2) or (np.asarray(warped).ndim == 3 and np.asarray(warped).shape[2] == 1)

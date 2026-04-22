@@ -29,7 +29,7 @@ class DataIOWrapper(nn.Module):
     def __init__(self, model, config, ckpt=None, device=None):
         super().__init__()
         if device is not None:
-            self.device = device
+            self.device = torch.device(device)
         else:
             self.device = torch.device('cuda:{}'.format(0) if torch.cuda.is_available() else 'cpu')
         torch.set_grad_enabled(False)
@@ -44,7 +44,7 @@ class DataIOWrapper(nn.Module):
         if ckpt:
             ckpt_dict = torch.load(ckpt, map_location=self.device)
             self.model.load_state_dict(ckpt_dict['state_dict'])
-            self.model = self.model.eval().to(self.device)
+        self.model = self.model.eval().to(self.device)
 
     def preprocess_image(self, img, device, resize=None, df=None, padding=None, cam_K=None, dist=None, gray_scale=True):
         # xoftr takes grayscale input images
@@ -124,10 +124,12 @@ class DataIOWrapper(nn.Module):
                                                        recompute_scale_factor=False)[0].bool()
             batch.update({'mask0': ts_mask_0.unsqueeze(0), 'mask1': ts_mask_1.unsqueeze(0)})
 
-        torch.cuda.synchronize()
+        if self.device.type == 'cuda':
+            torch.cuda.synchronize()
         start = time.time()
         self.model(batch)
-        torch.cuda.synchronize()
+        if self.device.type == 'cuda':
+            torch.cuda.synchronize()
         match_1 = time.time()
         match_time = match_1 - start
         # print('match time:', match_1 - start)

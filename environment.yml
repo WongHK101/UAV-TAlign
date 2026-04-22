@@ -17,6 +17,7 @@ dependencies:
   - pytorch-cuda=11.8
   - pip:
       - opencv-python
+      - albumentations
       - kornia
       - einops
       - matplotlib
@@ -25,4 +26,7 @@ dependencies:
       - yacs
       - joblib
       - pytorch-lightning
+      - torchmetrics
       - timm
+      - poselib
+      - gdown

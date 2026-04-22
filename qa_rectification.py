@@ -58,6 +58,19 @@ def _image_map(manifest: Dict[str, object]) -> Dict[str, Dict[str, object]]:
     }
 
 
+def _resolve_manifest_image_path(scene_root: Path, item: Dict[str, object], default_subdir: str = "images") -> Path:
+    source_path = str(item.get("source_path", "")).strip()
+    if source_path:
+        return Path(source_path)
+    rectified_path = str(item.get("rectified_path", "")).strip()
+    if rectified_path:
+        return Path(rectified_path)
+    image_name = str(item.get("image_name", "")).strip()
+    if not image_name:
+        raise KeyError(f"Manifest item is missing image_name/source_path under {scene_root}")
+    return scene_root / default_subdir / image_name
+
+
 def _save_uint8_image(path: Path, array: np.ndarray) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.fromarray(array).save(path)
@@ -137,7 +150,10 @@ def run_rectification_qa(prepared_root: Path,
         available_selected_names = []
         skipped_missing_rgb_plane = 0
         for image_name in selected_names:
-            if not (rgb_scene_root / "images" / image_name).exists():
+            rgb_item = rgb_items.get(image_name)
+            if rgb_item is None:
+                continue
+            if not _resolve_manifest_image_path(rgb_scene_root, rgb_item).exists():
                 skipped_missing_rgb_plane += 1
                 continue
             if image_name not in raw_map or image_name not in rect_map:
@@ -159,10 +175,20 @@ def run_rectification_qa(prepared_root: Path,
         rect_grad = []
 
         for image_name in selected_names:
-            rgb_image = load_rgb_plane_image(rgb_scene_root / "images" / image_name)
-            raw_band = _load_scalar_image(Path(str(raw_map[image_name].get("source_path"))), dynamic_range=input_dynamic_range, radiometric_mode=radiometric_mode)
-            rect_band = _load_scalar_image(rect_scene_root / "images" / image_name, dynamic_range=input_dynamic_range, radiometric_mode=radiometric_mode)
+            rgb_image = load_rgb_plane_image(_resolve_manifest_image_path(rgb_scene_root, rgb_items[image_name]))
+            raw_band = _load_scalar_image(
+                _resolve_manifest_image_path(raw_scene_root, raw_map[image_name]),
+                dynamic_range=input_dynamic_range,
+                radiometric_mode=radiometric_mode,
+            )
+            rect_band = _load_scalar_image(
+                _resolve_manifest_image_path(rect_scene_root, rect_map[image_name]),
+                dynamic_range=input_dynamic_range,
+                radiometric_mode=radiometric_mode,
+            )
             mask_path = Path(str(rect_map[image_name].get("validity_mask_path", "")))
+            if not str(mask_path):
+                mask_path = rect_scene_root / "validity_masks" / f"{Path(image_name).stem}.png"
             mask = cv2.imread(str(mask_path), cv2.IMREAD_GRAYSCALE)
             if mask is None:
                 raise FileNotFoundError(f"Missing QA mask: {mask_path}")

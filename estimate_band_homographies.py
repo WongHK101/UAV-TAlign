@@ -74,6 +74,16 @@ def _image_map(manifest: Dict[str, object]) -> Dict[str, Dict[str, object]]:
     }
 
 
+def _resolve_manifest_image_path(scene_root: Path, item: Dict[str, object]) -> Path:
+    source_path = str(item.get("source_path", "")).strip()
+    if source_path:
+        return Path(source_path)
+    image_name = str(item.get("image_name", "")).strip()
+    if not image_name:
+        raise KeyError(f"Manifest item is missing image_name/source_path under {scene_root}")
+    return scene_root / "images" / image_name
+
+
 def _safe_float(value, default: float) -> float:
     try:
         return float(value)
@@ -93,8 +103,8 @@ def load_frame_records(prepared_root: Path, band_name: str) -> List[dict]:
     for image_name in common_names:
         rgb_item = rgb_map[image_name]
         band_item = band_map[image_name]
-        rgb_path = rgb_scene_root / "images" / image_name
-        band_path = Path(str(band_item.get("source_path") or (raw_scene_root / "images" / image_name)))
+        rgb_path = _resolve_manifest_image_path(rgb_scene_root, rgb_item)
+        band_path = _resolve_manifest_image_path(raw_scene_root, band_item)
         if not rgb_path.exists():
             skipped_missing_rgb_plane += 1
             continue
@@ -128,11 +138,19 @@ def _build_min_good_frames(total_frames: int, requested: int) -> int:
     return int(max(4, min(total_frames, default_target)))
 
 
-def _candidate_records_by_count(records: Sequence[dict], count: int, min_structure_score: float | None) -> List[dict]:
+def _candidate_records_by_count(
+    records: Sequence[dict],
+    count: int,
+    min_structure_score: float | None,
+    selection_mode: str,
+    seed: int,
+) -> List[dict]:
     return select_representative_frames(
         frame_records=list(records),
         max_frames=int(count),
         min_structure_score=min_structure_score,
+        selection_mode=selection_mode,
+        seed=seed,
     )
 
 
@@ -197,6 +215,19 @@ def _summary_value(summary: dict, key: str, default: float) -> float:
         return float(default)
 
 
+def _aggregate_homographies(
+    accepted_sorted: Sequence[dict],
+    aggregation_mode: str,
+) -> np.ndarray:
+    mode = str(aggregation_mode).strip().lower()
+    if mode == "single_best":
+        return normalize_homography_matrix(np.asarray(accepted_sorted[0]["homography"], dtype=np.float64))
+    return robust_aggregate_homographies_weighted(
+        [item["homography"] for item in accepted_sorted],
+        [max(item["quality_score"], 1e-6) for item in accepted_sorted],
+    )
+
+
 def _build_candidate_diagnostics(
     band_name: str,
     records: Sequence[dict],
@@ -206,10 +237,8 @@ def _build_candidate_diagnostics(
     config: dict,
 ) -> dict:
     accepted_sorted = sorted(accepted_items, key=lambda item: item["quality_score"], reverse=True)
-    t_full = robust_aggregate_homographies_weighted(
-        [item["homography"] for item in accepted_sorted],
-        [max(item["quality_score"], 1e-6) for item in accepted_sorted],
-    )
+    aggregation_mode = str(config.get("minima_aggregation_mode", "robust_weighted"))
+    t_full = _aggregate_homographies(accepted_sorted, aggregation_mode)
 
     refine_result = _maybe_refine_transform(
         t_full=t_full,
@@ -222,6 +251,8 @@ def _build_candidate_diagnostics(
         frame_records=records,
         max_frames=int(config.get("rectification_estimation_frames", 12)),
         min_structure_score=config.get("rectification_min_structure_score", None),
+        selection_mode=str(config.get("rectification_frame_selection_mode", "even")),
+        seed=int(config.get("seed", 0)),
     )
     if not eval_records:
         eval_records = [item["record"] for item in accepted_sorted[: max(6, min(12, len(accepted_sorted)))]]  # type: ignore[index]
@@ -308,11 +339,19 @@ def _build_candidate_diagnostics(
     accepted_enough = len(accepted_items) >= int(min_good_frames)
     stability_ok = median_disp <= stability_warn_px and robust_reject_ratio <= max_reject_ratio
     qa_ok = str(qa_info["qa_status"]) in {"pass", "pass_with_warning"}
+    scene_pass_policy = str(config.get("rectification_scene_pass_policy", "qa_status")).strip().lower()
+    if scene_pass_policy == "accepted_only":
+        should_stop = bool(accepted_enough)
+    elif scene_pass_policy == "legacy_pass":
+        should_stop = bool(accepted_enough and qa_info["legacy_pass"])
+    else:
+        should_stop = bool(accepted_enough and stability_ok and qa_ok)
     stop_criteria = {
         "accepted_enough": bool(accepted_enough),
         "stability_ok": bool(stability_ok),
         "qa_ok": bool(qa_ok),
-        "should_stop": bool(accepted_enough and stability_ok and qa_ok),
+        "should_stop": bool(should_stop),
+        "scene_pass_policy": scene_pass_policy,
         "median_disp_to_aggregate_mean_px": float(median_disp),
         "median_disp_to_aggregate_mean_rel": _summary_value(
             homography_stability.get("disp_vs_aggregate_grid_mean_rel", {}),
@@ -331,6 +370,7 @@ def _build_candidate_diagnostics(
     return {
         "accepted_sorted": accepted_sorted,
         "t_full": np.asarray(t_full, dtype=np.float64),
+        "aggregation_mode": aggregation_mode,
         "refine_result": refine_result,
         "t_opt_full": t_opt_full,
         "eval_records": eval_records,
@@ -492,6 +532,8 @@ def _estimate_for_band(prepared_root: Path, band_name: str, config: dict, matche
             include_all=bool(config.get("minima_use_all_if_needed", True)),
         )
         candidate_policy = "adaptive"
+    selection_mode = str(config.get("rectification_frame_selection_mode", "even")).strip().lower()
+    seed = int(config.get("seed", 0))
 
     attempted_names = set()
     accepted_items: List[dict] = []
@@ -510,6 +552,8 @@ def _estimate_for_band(prepared_root: Path, band_name: str, config: dict, matche
             records=records,
             count=count,
             min_structure_score=config.get("rectification_min_structure_score", None),
+            selection_mode=selection_mode,
+            seed=seed + int(count),
         )
         new_records = [item for item in stage_records if item["image_name"] not in attempted_names]
         stage_info = {
@@ -517,6 +561,7 @@ def _estimate_for_band(prepared_root: Path, band_name: str, config: dict, matche
             "new_records": len(new_records),
             "accepted_before": len(accepted_items),
             "candidate_policy": candidate_policy,
+            "frame_selection_mode": selection_mode,
         }
         print(
             f"[rectification:{band_name}] candidate_count={count}, "
@@ -600,11 +645,95 @@ def _estimate_for_band(prepared_root: Path, band_name: str, config: dict, matche
             )
         stage_diags.append(stage_info)
 
+    canonical_failure_reason = None
+    allow_insufficient_frames = bool(config.get("rectification_allow_insufficient_frames", False))
     if len(accepted_items) < min_good_frames:
-        raise RuntimeError(
-            f"[{band_name}] MINIMA matching produced insufficient high-quality frames: "
-            f"accepted={len(accepted_items)} < min_good_frames={min_good_frames}, attempted={len(attempted_names)}, total={n_total}"
+        canonical_failure_reason = "accepted_frames_below_min_good_frames"
+        if not allow_insufficient_frames:
+            raise RuntimeError(
+                f"[{band_name}] MINIMA matching produced insufficient high-quality frames: "
+                f"accepted={len(accepted_items)} < min_good_frames={min_good_frames}, attempted={len(attempted_names)}, total={n_total}"
+            )
+        print(
+            f"[rectification:{band_name}] canonical threshold not met: "
+            f"accepted={len(accepted_items)}/{min_good_frames}; "
+            f"continuing because rectification_allow_insufficient_frames=True",
+            flush=True,
         )
+        if accepted_items:
+            selected_diagnostics = _build_candidate_diagnostics(
+                band_name=band_name,
+                records=records,
+                accepted_items=accepted_items,
+                all_diags=all_diags,
+                min_good_frames=min_good_frames,
+                config=config,
+            )
+        else:
+            accepted_ratio = float(len(accepted_items)) / float(max(len(attempted_names), 1))
+            return {
+                "num_candidate_frames": int(n_total),
+                "num_attempted_frames": int(len(attempted_names)),
+                "num_accepted_frames": int(len(accepted_items)),
+                "candidate_policy": candidate_policy,
+                "final_stop_criteria": {
+                    "accepted_enough": False,
+                    "stability_ok": False,
+                    "qa_ok": False,
+                    "should_stop": False,
+                    "median_disp_to_aggregate_mean_px": None,
+                    "median_disp_to_aggregate_mean_rel": None,
+                    "stability_warn_mean_px": float(config.get("rectification_stability_warn_mean_px", 25.0)),
+                    "robust_reject_ratio": None,
+                    "max_robust_reject_ratio": float(config.get("rectification_stability_max_reject_ratio", 0.25)),
+                    "qa_status": "insufficient_frames",
+                    "qa_warning_codes": [canonical_failure_reason],
+                    "qa_decision_inputs": {},
+                    "warning_path_reason": canonical_failure_reason,
+                },
+                "selected_frame_ids": [],
+                "selected_image_names": [],
+                "qa_representative_frame_ids": [],
+                "qa_representative_image_names": [],
+                "h0_source": None,
+                "H0": None,
+                "naive_H0": None,
+                "theta_opt": None,
+                "T_aggregate": None,
+                "T_opt": None,
+                "optimizer": None,
+                "matcher_backend": str(config.get("rectification_backend", "minima")),
+                "minima_method": str(config.get("minima_method", "roma")),
+                "scores": {},
+                "per_frame": [],
+                "match_summary": _summarize_match_attempts(all_diags),
+                "homography_stability": {},
+                "H0_vs_Topt_displacement": {},
+                "H0_vs_Taggregate_displacement": {},
+                "qa_status": "insufficient_frames",
+                "qa_warning_codes": [canonical_failure_reason],
+                "legacy_pass": False,
+                "qa_decision_inputs": {},
+                "warning_path_reason": canonical_failure_reason,
+                "qa_notes": ["No accepted frames were available for scene-level aggregation."],
+                "match_attempts": all_diags,
+                "adaptive_schedule": stage_diags,
+                "accepted_ratio": float(accepted_ratio),
+                "canonical_min_good_frames": int(min_good_frames),
+                "canonical_scene_pass": False,
+                "canonical_failure_reason": canonical_failure_reason,
+                "canonical_threshold_note": (
+                    "canonical threshold retained for formal runs; on 5-pair smoke subsets "
+                    "it should be interpreted as a stress-test criterion"
+                ),
+                "pass": False,
+                "notes": [
+                    (
+                        f"Canonical threshold not met: accepted={len(accepted_items)} "
+                        f"< min_good_frames={min_good_frames}"
+                    )
+                ],
+            }
     if selected_diagnostics is None:
         selected_diagnostics = _build_candidate_diagnostics(
             band_name=band_name,
@@ -646,11 +775,32 @@ def _estimate_for_band(prepared_root: Path, band_name: str, config: dict, matche
         flush=True,
     )
 
+    scene_pass_policy = str(config.get("rectification_scene_pass_policy", "qa_status")).strip().lower()
+    if scene_pass_policy == "accepted_only":
+        canonical_scene_pass = bool(len(accepted_items) >= min_good_frames)
+    elif scene_pass_policy == "legacy_pass":
+        canonical_scene_pass = bool(len(accepted_items) >= min_good_frames and qa_info["legacy_pass"])
+    else:
+        canonical_scene_pass = bool(
+            len(accepted_items) >= min_good_frames
+            and str(qa_info["qa_status"]) in {"pass", "pass_with_warning"}
+        )
+    if canonical_failure_reason is None and not canonical_scene_pass:
+        if scene_pass_policy == "accepted_only":
+            canonical_failure_reason = "accepted_frames_below_min_good_frames"
+        elif scene_pass_policy == "legacy_pass":
+            canonical_failure_reason = f"legacy_pass:{qa_info['legacy_pass']}"
+        else:
+            canonical_failure_reason = f"qa_status:{qa_info['qa_status']}"
+
     payload = {
         "num_candidate_frames": int(n_total),
         "num_attempted_frames": int(len(attempted_names)),
         "num_accepted_frames": int(len(accepted_items)),
         "candidate_policy": candidate_policy,
+        "frame_selection_mode": selection_mode,
+        "aggregation_mode": selected_diagnostics["aggregation_mode"],
+        "scene_pass_policy": scene_pass_policy,
         "final_stop_criteria": stop_criteria,
         "selected_frame_ids": [item["record"]["frame_id"] for item in accepted_sorted],
         "selected_image_names": [item["image_name"] for item in eval_records],
@@ -680,8 +830,22 @@ def _estimate_for_band(prepared_root: Path, band_name: str, config: dict, matche
         "match_attempts": all_diags,
         "adaptive_schedule": stage_diags,
         "accepted_ratio": float(len(accepted_items)) / float(max(len(attempted_names), 1)),
-        "pass": bool(band_pass),
-        "notes": [],
+        "canonical_min_good_frames": int(min_good_frames),
+        "canonical_scene_pass": bool(canonical_scene_pass),
+        "canonical_failure_reason": canonical_failure_reason,
+        "canonical_threshold_note": (
+            "canonical threshold retained for formal runs; on 5-pair smoke subsets "
+            "it should be interpreted as a stress-test criterion"
+        ),
+        "pass": bool(canonical_scene_pass),
+        "notes": []
+        if canonical_failure_reason is None
+        else [
+            (
+                f"Canonical threshold/result failed: accepted={len(accepted_items)} "
+                f"min_good_frames={min_good_frames} reason={canonical_failure_reason}"
+            )
+        ],
     }
     return payload
 
@@ -691,6 +855,7 @@ def estimate_band_homographies(
     out_json: Path,
     bands: Sequence[str] | str | None = None,
     frame_count: int = 12,
+    seed: int = 0,
     input_dynamic_range: str = "uint16",
     radiometric_mode: str = "exposure_normalized",
     rectification_use_metadata_h0: bool = True,
@@ -704,6 +869,8 @@ def estimate_band_homographies(
     rectification_alignment_max_dim: int = 640,
     rectification_refine_frames: int = 6,
     rectification_min_structure_score: float | None = None,
+    rectification_frame_selection_mode: str = "even",
+    rectification_scene_pass_policy: str = "qa_status",
     rectification_debug_use_legacy_ecc: bool = False,
     rectification_min_improved_ratio: float = 0.6,
     rectification_max_severe_outliers: int = 0,
@@ -725,6 +892,7 @@ def estimate_band_homographies(
     minima_match_threshold: float = 0.3,
     minima_fine_threshold: float = 0.1,
     minima_match_max_dim: int = 1600,
+    minima_aggregation_mode: str = "robust_weighted",
     minima_match_conf_thresh: float = 0.2,
     minima_min_matches: int = 80,
     minima_min_inlier_ratio: float = 0.30,
@@ -742,6 +910,7 @@ def estimate_band_homographies(
     minima_use_all_if_needed: bool = True,
     minima_full_if_frames_le: int = 300,
     rectification_enable_residual_refine: bool = False,
+    rectification_allow_insufficient_frames: bool = False,
 ) -> Dict[str, object]:
     prepared_root = prepared_root.resolve()
     out_json = out_json.resolve()
@@ -761,6 +930,7 @@ def estimate_band_homographies(
 
     config = {
         "rectification_estimation_frames": int(frame_count),
+        "seed": int(seed),
         "input_dynamic_range": input_dynamic_range,
         "radiometric_mode": radiometric_mode,
         "rectification_use_metadata_h0": bool(rectification_use_metadata_h0),
@@ -774,6 +944,8 @@ def estimate_band_homographies(
         "rectification_alignment_max_dim": int(rectification_alignment_max_dim),
         "rectification_refine_frames": int(rectification_refine_frames),
         "rectification_min_structure_score": rectification_min_structure_score,
+        "rectification_frame_selection_mode": str(rectification_frame_selection_mode),
+        "rectification_scene_pass_policy": str(rectification_scene_pass_policy),
         "rectification_debug_use_legacy_ecc": bool(rectification_debug_use_legacy_ecc),
         "rectification_min_improved_ratio": float(rectification_min_improved_ratio),
         "rectification_max_severe_outliers": int(rectification_max_severe_outliers),
@@ -795,6 +967,7 @@ def estimate_band_homographies(
         "minima_match_threshold": float(minima_match_threshold),
         "minima_fine_threshold": float(minima_fine_threshold),
         "minima_match_max_dim": int(minima_match_max_dim),
+        "minima_aggregation_mode": str(minima_aggregation_mode),
         "minima_match_conf_thresh": float(minima_match_conf_thresh),
         "minima_min_matches": int(minima_min_matches),
         "minima_min_inlier_ratio": float(minima_min_inlier_ratio),
@@ -812,6 +985,7 @@ def estimate_band_homographies(
         "minima_use_all_if_needed": bool(minima_use_all_if_needed),
         "minima_full_if_frames_le": int(minima_full_if_frames_le),
         "rectification_enable_residual_refine": bool(rectification_enable_residual_refine),
+        "rectification_allow_insufficient_frames": bool(rectification_allow_insufficient_frames),
     }
     band_list = _parse_bands(bands)
 
@@ -862,6 +1036,7 @@ def main() -> None:
     ap.add_argument("--out_json", required=True, help="Output JSON file for band-global rectification transforms.")
     ap.add_argument("--bands", default="T", help="Comma-separated list of modalities to estimate (e.g., T, THERMAL, or TIR).")
     ap.add_argument("--frame_count", type=int, default=12)
+    ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--input_dynamic_range", default="uint16", choices=["uint8", "uint16", "float"])
     ap.add_argument("--radiometric_mode", default="exposure_normalized", choices=["raw_dn", "exposure_normalized", "reflectance_ready_stub"])
     ap.add_argument("--rectification_use_metadata_h0", type=str, default="true")
@@ -875,6 +1050,8 @@ def main() -> None:
     ap.add_argument("--rectification_alignment_max_dim", type=int, default=640)
     ap.add_argument("--rectification_refine_frames", type=int, default=6)
     ap.add_argument("--rectification_min_structure_score", type=float, default=None)
+    ap.add_argument("--rectification_frame_selection_mode", default="even", choices=["even", "random"])
+    ap.add_argument("--rectification_scene_pass_policy", default="qa_status", choices=["qa_status", "legacy_pass", "accepted_only"])
     ap.add_argument("--rectification_debug_use_legacy_ecc", type=str, default="false")
     ap.add_argument("--rectification_min_improved_ratio", type=float, default=0.6)
     ap.add_argument("--rectification_max_severe_outliers", type=int, default=0)
@@ -897,6 +1074,7 @@ def main() -> None:
     ap.add_argument("--minima_match_threshold", type=float, default=0.3)
     ap.add_argument("--minima_fine_threshold", type=float, default=0.1)
     ap.add_argument("--minima_match_max_dim", type=int, default=1600)
+    ap.add_argument("--minima_aggregation_mode", default="robust_weighted", choices=["robust_weighted", "single_best"])
     ap.add_argument("--minima_match_conf_thresh", type=float, default=0.2)
     ap.add_argument("--minima_min_matches", type=int, default=80)
     ap.add_argument("--minima_min_inlier_ratio", type=float, default=0.30)
@@ -922,6 +1100,7 @@ def main() -> None:
         out_json=Path(args.out_json),
         bands=args.bands,
         frame_count=args.frame_count,
+        seed=args.seed,
         input_dynamic_range=args.input_dynamic_range,
         radiometric_mode=args.radiometric_mode,
         rectification_use_metadata_h0=str(args.rectification_use_metadata_h0).strip().lower() not in ("0", "false", "no", "off"),
@@ -935,6 +1114,8 @@ def main() -> None:
         rectification_alignment_max_dim=args.rectification_alignment_max_dim,
         rectification_refine_frames=args.rectification_refine_frames,
         rectification_min_structure_score=args.rectification_min_structure_score,
+        rectification_frame_selection_mode=args.rectification_frame_selection_mode,
+        rectification_scene_pass_policy=args.rectification_scene_pass_policy,
         rectification_debug_use_legacy_ecc=str(args.rectification_debug_use_legacy_ecc).strip().lower() not in ("0", "false", "no", "off"),
         rectification_min_improved_ratio=args.rectification_min_improved_ratio,
         rectification_max_severe_outliers=args.rectification_max_severe_outliers,
@@ -956,6 +1137,7 @@ def main() -> None:
         minima_match_threshold=args.minima_match_threshold,
         minima_fine_threshold=args.minima_fine_threshold,
         minima_match_max_dim=args.minima_match_max_dim,
+        minima_aggregation_mode=args.minima_aggregation_mode,
         minima_match_conf_thresh=args.minima_match_conf_thresh,
         minima_min_matches=args.minima_min_matches,
         minima_min_inlier_ratio=args.minima_min_inlier_ratio,
