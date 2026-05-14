@@ -144,6 +144,11 @@ def build_smoke_test_pairs(dataset_root: str | Path, manifest_path: str | Path |
     )
 
 
+def _canonical_manifest_sha256(manifest: Mapping[str, object]) -> str:
+    canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 def manifest_provenance(dataset_root: str | Path, manifest_path: str | Path | None = None) -> Dict[str, object]:
     root = Path(dataset_root).resolve()
     manifest, path = _load_manifest(root, manifest_path=manifest_path)
@@ -152,7 +157,9 @@ def manifest_provenance(dataset_root: str | Path, manifest_path: str | Path | No
     full_collection = manifest.get("full_candidate_collection", {}) if isinstance(manifest, dict) else {}
     return {
         "manifest_path": str(path),
-        "manifest_sha256": hashlib.sha256(raw).hexdigest(),
+        "manifest_sha256": _canonical_manifest_sha256(manifest),
+        "manifest_hash_policy": "canonical_json_sort_keys_compact_utf8",
+        "manifest_file_sha256": hashlib.sha256(raw).hexdigest(),
         "dataset_name": manifest.get("dataset_name"),
         "manifest_type": manifest.get("manifest_type", "dataset_manifest"),
         "manifest_version": manifest.get("manifest_version"),

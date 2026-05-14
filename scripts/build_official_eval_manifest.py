@@ -104,6 +104,10 @@ def _write_csv(path: Path, rows: Iterable[dict], fieldnames: list[str]) -> None:
             writer.writerow({field: row.get(field, "") for field in fieldnames})
 
 
+def _write_text(path: Path, text: str) -> None:
+    path.write_text(text, encoding="utf-8", newline="\n")
+
+
 def _relative(path: Path, root: Path) -> str:
     return path.resolve().relative_to(root.resolve()).as_posix()
 
@@ -405,20 +409,20 @@ def _write_markdown(path: Path, report: dict, exclusions: list[dict], duplicate_
             )
     else:
         lines.append("| None | - | - | - |")
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _write_text(path, "\n".join(lines) + "\n")
 
 
 def write_outputs(output_root: Path, manifest: dict, report: dict, exclusions: list[dict], duplicate_rows: list[dict], decode_invalid_rows: list[dict]) -> None:
     output_root.mkdir(parents=True, exist_ok=True)
     dataset_name = str(manifest["dataset_name"])
 
-    (output_root / f"{dataset_name}_official_valid_evaluation_manifest.json").write_text(
+    _write_text(
+        output_root / f"{dataset_name}_official_valid_evaluation_manifest.json",
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
     )
-    (output_root / f"{dataset_name}_integrity_report.json").write_text(
+    _write_text(
+        output_root / f"{dataset_name}_integrity_report.json",
         json.dumps(report, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
     )
     _write_markdown(output_root / f"{dataset_name}_integrity_report.md", report, exclusions, duplicate_rows)
 
