@@ -1,13 +1,14 @@
 # UAV-TAlign
 
-**UAV-TAlign: RGB-Thermal Registration for UAV Imagery**
+**UAV-TAlign: Infrared-Visible Registration for UAV Imagery**
 
 This repository contains the standalone 2D UAV RGB-thermal registration code
-used for the current PRCV study. It includes:
+used for the UAV-TAlign infrared-visible alignment study. It includes:
 
 - scene-level RGB-thermal rectification with MINIMA-family backends;
 - pairwise baseline runners for SIFT, AKAZE, LoFTR, RoMa, XoFTR, and raw MINIMA;
-- PRCV smoke-test and main-evaluation entry points;
+- smoke-test and main-evaluation entry points;
+- dataset audit tooling for `UAV-TAlign-12K` and `UAV-TAlign-1K-Lite`;
 - vendored third-party code under `third_party/MINIMA/`.
 
 Model weights, datasets, outputs, and internal drafting materials are
@@ -25,9 +26,14 @@ intentionally excluded from Git.
 - `qa_rectification.py`
   Produces QA summaries and visual diagnostics.
 - `run_prcv_smoke_test.py`
-  Small fixed-subset smoke evaluation for baseline readiness.
+  Small fixed-subset smoke evaluation for baseline readiness. The historical
+  filename is retained for compatibility.
 - `run_prcv_main_experiment.py`
-  Main PRCV evaluation runner on `UAV-TAlign-1K`.
+  Main evaluation runner for `UAV-TAlign-1K-Lite` and `UAV-TAlign-12K`. The
+  historical filename is retained for compatibility.
+- `scripts/audit_uav_talign_dataset.py`
+  Read-only dataset audit utility that emits scene, condition, integrity, and
+  frozen-manifest artifacts.
 - `utils/`
   Dataset adapters, matching bridges, QA helpers, and evaluation utilities.
 - `scripts/server_run_prcv_ablation_wave.sh`
@@ -40,7 +46,7 @@ intentionally excluded from Git.
 ## Tested Environment
 
 The authoritative tested environment is `environment.yml`.
-The current PRCV experiments were run in a Linux `uav-talign` Conda environment
+The current experiments were run in a Linux `uav-talign` Conda environment
 with the following key package versions:
 
 - Python `3.10.18`
@@ -113,13 +119,29 @@ prepared/
 The thermal band defaults to `T`. If `--bands` is changed, the thermal folder
 must be named `<band>_raw`.
 
-### 2. `UAV-TAlign-1K` pairwise evaluation layout
+### 2. `UAV-TAlign-12K` and `UAV-TAlign-1K-Lite` evaluation layout
 
 `run_prcv_smoke_test.py` and `run_prcv_main_experiment.py` expect a dataset root
 with a manifest plus per-scene `rgb/` and `thermal/` folders:
 
 ```text
-UAV-TAlign-1K/
+UAV-TAlign-12K/
+  dataset_manifest.json
+  01_day_grayscale_wide_substation_power_lines_50/
+    rgb/
+      000001.jpg
+      ...
+    thermal/
+      000001.jpg
+      ...
+  ...
+```
+
+`UAV-TAlign-12K` is the full journal benchmark. `UAV-TAlign-1K-Lite` is the
+fixed lightweight subset for development, ablation, and fast evaluation:
+
+```text
+UAV-TAlign-1K-Lite/
   subset_manifest.json
   01_day_grayscale_wide_substation_power_lines_50/
     rgb/
@@ -133,6 +155,27 @@ UAV-TAlign-1K/
 
 The loader also accepts `dataset_manifest.json` in place of `subset_manifest.json`.
 
+Because `UAV-TAlign-12K` has imbalanced scene lengths, downstream reporting
+should include micro pair-level averages, macro scene-level averages,
+per-scene statistics, and condition-level statistics.
+
+### 3. Dataset audit
+
+Run the read-only audit before release packaging or large experiments:
+
+```bash
+python scripts/audit_uav_talign_dataset.py \
+  --dataset UAV-TAlign-1K-Lite /path/to/UAV-TAlign-1K-Lite \
+  --dataset UAV-TAlign-12K /path/to/UAV-TAlign-12K \
+  --output_root /path/to/review_artifacts/ipt_p0a_dataset_audit \
+  --verify_images \
+  --hash_duplicates
+```
+
+The audit writes all outputs under `--output_root` and does not write into the
+dataset directories. See `DATASET_MANIFEST_SCHEMA.md` for the journal-facing
+manifest schema.
+
 ## Quick Start
 
 ### Rectification pipeline
@@ -145,29 +188,29 @@ python run_uav_talign_rectification.py \
   --minima_method roma
 ```
 
-### PRCV smoke test
+### Smoke test
 
 ```bash
 python run_prcv_smoke_test.py \
-  --dataset_root /path/to/UAV-TAlign-1K \
+  --dataset_root /path/to/UAV-TAlign-1K-Lite \
   --output_root /path/to/outputs/prcv_smoke_test \
   --methods sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,uav_talign_full \
   --device cuda \
   --official_xoftr_ckpt /path/to/weights_xoftr_640.ckpt
 ```
 
-### PRCV main evaluation
+### Main evaluation
 
 ```bash
 python run_prcv_main_experiment.py \
-  --dataset_root /path/to/UAV-TAlign-1K \
+  --dataset_root /path/to/UAV-TAlign-12K \
   --output_root /path/to/outputs/prcv_main_experiment \
   --methods raw_minima,uav_talign_full \
   --device cuda \
   --seed 0
 ```
 
-For the default main PRCV comparison set, use:
+For the default main comparison set, use:
 
 ```text
 sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,uav_talign_full
