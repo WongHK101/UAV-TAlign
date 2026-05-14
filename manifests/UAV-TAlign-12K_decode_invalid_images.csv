@@ -1,0 +1,3 @@
+scene_name,modality,pair_id,relative_path,internal_reason,decode_error
+13_lowlight_pseudocolor_road_469,thermal,000058,13_lowlight_pseudocolor_road_469/thermal/000058.jpg,decode_invalid,UnidentifiedImageError
+13_lowlight_pseudocolor_road_469,thermal,000080,13_lowlight_pseudocolor_road_469/thermal/000080.jpg,decode_invalid,UnidentifiedImageError

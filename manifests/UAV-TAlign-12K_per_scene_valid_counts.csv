@@ -1,0 +1,16 @@
+scene_name,scene_id,light_condition,thermal_rendering,view_type,scene_family,candidate_pair_count,valid_pair_count,valid_image_count,excluded_pair_count
+01_day_grayscale_wide_substation_power_lines_50,01,day,grayscale,wide,substation_power_lines,50,50,100,0
+02_day_grayscale_zoom_substation_power_lines_50,02,day,grayscale,zoom,substation_power_lines,50,50,100,0
+03_night_grayscale_wide_substation_power_lines_45,03,night,grayscale,wide,substation_power_lines,45,45,90,0
+04_night_grayscale_zoom_substation_power_lines_45,04,night,grayscale,zoom,substation_power_lines,45,45,90,0
+05_night_pseudocolor_solar_panels_1315,05,night,pseudocolor,standard,solar_panels,1315,1315,2630,0
+06_day_pseudocolor_solar_panels_1037,06,day,pseudocolor,standard,solar_panels,1037,1037,2074,0
+07_day_grayscale_transmission_tower_102,07,day,grayscale,standard,transmission_tower,102,102,204,0
+08_night_grayscale_urban_422,08,night,grayscale,standard,urban,422,422,844,0
+09_day_pseudocolor_building_614,09,day,pseudocolor,standard,building,614,614,1228,0
+10_day_pseudocolor_factory_262,10,day,pseudocolor,standard,factory,262,262,524,0
+11_night_grayscale_building_181,11,night,grayscale,standard,building,181,181,362,0
+12_day_grayscale_orchard_588,12,day,grayscale,standard,orchard,588,588,1176,0
+13_lowlight_pseudocolor_road_469,13,lowlight,pseudocolor,standard,road,469,467,934,2
+14_lowlight_pseudocolor_transmission_tower_673,14,lowlight,pseudocolor,standard,transmission_tower,673,673,1346,0
+15_lowlight_pseudocolor_woodland_186,15,lowlight,pseudocolor,standard,woodland,186,186,372,0

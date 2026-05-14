@@ -34,6 +34,11 @@ intentionally excluded from Git.
 - `scripts/audit_uav_talign_dataset.py`
   Read-only dataset audit utility that emits scene, condition, integrity, and
   frozen-manifest artifacts.
+- `scripts/build_official_eval_manifest.py`
+  Builds the official `UAV-TAlign-12K` valid evaluation manifest and
+  integrity report used by journal-scale experiments.
+- `manifests/`
+  Versioned small manifest/report files for the official 12K evaluation split.
 - `utils/`
   Dataset adapters, matching bridges, QA helpers, and evaluation utilities.
 - `scripts/server_run_prcv_ablation_wave.sh`
@@ -155,6 +160,17 @@ UAV-TAlign-1K-Lite/
 
 The loader also accepts `dataset_manifest.json` in place of `subset_manifest.json`.
 
+For journal-scale 12K experiments, use the versioned official evaluation
+manifest:
+
+```text
+manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json
+```
+
+It fixes the evaluation entry to `6037` integrity-checked RGB-thermal pairs
+from the `6039`-pair candidate collection. The corresponding integrity report
+is tracked under `manifests/` for reproducibility and paper-facing summaries.
+
 Because `UAV-TAlign-12K` has imbalanced scene lengths, downstream reporting
 should include micro pair-level averages, macro scene-level averages,
 per-scene statistics, and condition-level statistics.
@@ -176,6 +192,16 @@ The audit writes all outputs under `--output_root` and does not write into the
 dataset directories. See `DATASET_MANIFEST_SCHEMA.md` for the journal-facing
 manifest schema.
 
+Build or refresh the official 12K valid evaluation manifest with:
+
+```bash
+python scripts/build_official_eval_manifest.py \
+  --dataset_root /path/to/UAV-TAlign-12K \
+  --output_root manifests \
+  --dataset_name UAV-TAlign-12K \
+  --manifest_version ipt_valid_v1
+```
+
 ## Quick Start
 
 ### Rectification pipeline
@@ -193,6 +219,7 @@ python run_uav_talign_rectification.py \
 ```bash
 python run_prcv_smoke_test.py \
   --dataset_root /path/to/UAV-TAlign-1K-Lite \
+  --manifest_path /path/to/subset_manifest.json \
   --output_root /path/to/outputs/prcv_smoke_test \
   --methods sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,uav_talign_full \
   --device cuda \
@@ -204,6 +231,7 @@ python run_prcv_smoke_test.py \
 ```bash
 python run_prcv_main_experiment.py \
   --dataset_root /path/to/UAV-TAlign-12K \
+  --manifest_path manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json \
   --output_root /path/to/outputs/prcv_main_experiment \
   --methods raw_minima,uav_talign_full \
   --device cuda \
@@ -221,6 +249,9 @@ sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,ua
 - `run_prcv_main_experiment.py` and `run_prcv_smoke_test.py` both enforce path
   guards so outputs cannot be written into the dataset root or the MINIMA code
   tree.
+- For 12K journal experiments, pass `--manifest_path` and use the tracked
+  official valid evaluation manifest. Runner summaries record the manifest
+  path, SHA256 hash, valid pair count, and excluded pair count.
 - The server launcher scripts now derive `REPO_ROOT` from their own location by
   default, so they are not tied to a specific username or absolute server path.
 - `run_prcv_main_experiment.py` supports `--resume true` and `--seed <int>` for

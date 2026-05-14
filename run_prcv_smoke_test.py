@@ -13,7 +13,7 @@ import numpy as np
 from estimate_band_homographies import estimate_band_homographies
 from utils.baseline_backends import create_pairwise_matcher, run_pairwise_registration
 from utils.prepared_scene_adapter import build_prepared_scene_from_pairs
-from utils.uav_talign_dataset import PairRecord, build_smoke_test_pairs, group_pairs_by_scene
+from utils.uav_talign_dataset import PairRecord, build_smoke_test_pairs, group_pairs_by_scene, manifest_provenance
 
 
 DEFAULT_METHODS = (
@@ -265,8 +265,9 @@ def _run_uav_talign_scene_method(
 
 def main() -> None:
     repo_root = Path(__file__).resolve().parent
-    ap = argparse.ArgumentParser(description="Run the PRCV first-wave smoke test on UAV-TAlign-1K.")
+    ap = argparse.ArgumentParser(description="Run the UAV-TAlign smoke test with optional manifest-filtered evaluation.")
     ap.add_argument("--dataset_root", default=str(repo_root / "UAV-TAlign-1K"))
+    ap.add_argument("--manifest_path", default="")
     ap.add_argument("--output_root", default=str(repo_root / "outputs" / "prcv_smoke_test"))
     ap.add_argument("--methods", default=",".join(DEFAULT_METHODS))
     ap.add_argument("--device", default="cpu")
@@ -297,7 +298,9 @@ def main() -> None:
     )
 
     methods = _parse_methods(args.methods)
-    smoke_pairs = build_smoke_test_pairs(dataset_root)
+    manifest_path = args.manifest_path.strip() or None
+    dataset_manifest = manifest_provenance(dataset_root=dataset_root, manifest_path=manifest_path)
+    smoke_pairs = build_smoke_test_pairs(dataset_root, manifest_path=manifest_path)
     grouped_pairs = group_pairs_by_scene(smoke_pairs)
 
     all_records: List[Dict[str, object]] = []
@@ -378,6 +381,7 @@ def main() -> None:
 
     final_summary = {
         "dataset_root": str(dataset_root),
+        "dataset_manifest": dataset_manifest,
         "output_root": str(output_root),
         "methods": methods,
         "device": str(args.device),

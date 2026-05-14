@@ -1,0 +1,414 @@
+{
+  "dataset_name": "UAV-TAlign-12K",
+  "manifest_type": "integrity_report",
+  "manifest_version": "ipt_valid_v1",
+  "generated_at": "2026-05-15T04:42:36",
+  "summary": {
+    "total_candidate_pairs": 6039,
+    "total_candidate_images": 12078,
+    "valid_evaluation_pairs": 6037,
+    "valid_evaluation_images": 12074,
+    "excluded_pair_count": 2,
+    "filename_mismatch_count": 0,
+    "decode_invalid_count": 2,
+    "duplicate_hash_group_count": 1
+  },
+  "excluded_pair_ids": [
+    {
+      "scene_name": "13_lowlight_pseudocolor_road_469",
+      "pair_id": "000058",
+      "internal_reason": "decode_invalid",
+      "paper_facing_category": "integrity_excluded"
+    },
+    {
+      "scene_name": "13_lowlight_pseudocolor_road_469",
+      "pair_id": "000080",
+      "internal_reason": "decode_invalid",
+      "paper_facing_category": "integrity_excluded"
+    }
+  ],
+  "filename_mismatches": [],
+  "decode_invalid_images": [
+    {
+      "scene_name": "13_lowlight_pseudocolor_road_469",
+      "modality": "thermal",
+      "pair_id": "000058",
+      "relative_path": "13_lowlight_pseudocolor_road_469/thermal/000058.jpg",
+      "internal_reason": "decode_invalid",
+      "decode_error": "UnidentifiedImageError"
+    },
+    {
+      "scene_name": "13_lowlight_pseudocolor_road_469",
+      "modality": "thermal",
+      "pair_id": "000080",
+      "relative_path": "13_lowlight_pseudocolor_road_469/thermal/000080.jpg",
+      "internal_reason": "decode_invalid",
+      "decode_error": "UnidentifiedImageError"
+    }
+  ],
+  "duplicate_hash_diagnostics": [
+    {
+      "scene_name": "05_night_pseudocolor_solar_panels_1315",
+      "modality": "thermal",
+      "sha256": "f0141d8e226c2d4a345165c542f14f44cc2f7f098119aa550e3119e9817b1809",
+      "count": 2,
+      "pair_ids": "000905;000906",
+      "relative_paths": "05_night_pseudocolor_solar_panels_1315/thermal/000905.jpg;05_night_pseudocolor_solar_panels_1315/thermal/000906.jpg",
+      "diagnostic_policy": "record_only_not_excluded"
+    }
+  ],
+  "per_scene_valid_counts": [
+    {
+      "scene_name": "01_day_grayscale_wide_substation_power_lines_50",
+      "scene_id": "01",
+      "light_condition": "day",
+      "thermal_rendering": "grayscale",
+      "view_type": "wide",
+      "scene_family": "substation_power_lines",
+      "candidate_pair_count": 50,
+      "valid_pair_count": 50,
+      "valid_image_count": 100,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "02_day_grayscale_zoom_substation_power_lines_50",
+      "scene_id": "02",
+      "light_condition": "day",
+      "thermal_rendering": "grayscale",
+      "view_type": "zoom",
+      "scene_family": "substation_power_lines",
+      "candidate_pair_count": 50,
+      "valid_pair_count": 50,
+      "valid_image_count": 100,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "03_night_grayscale_wide_substation_power_lines_45",
+      "scene_id": "03",
+      "light_condition": "night",
+      "thermal_rendering": "grayscale",
+      "view_type": "wide",
+      "scene_family": "substation_power_lines",
+      "candidate_pair_count": 45,
+      "valid_pair_count": 45,
+      "valid_image_count": 90,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "04_night_grayscale_zoom_substation_power_lines_45",
+      "scene_id": "04",
+      "light_condition": "night",
+      "thermal_rendering": "grayscale",
+      "view_type": "zoom",
+      "scene_family": "substation_power_lines",
+      "candidate_pair_count": 45,
+      "valid_pair_count": 45,
+      "valid_image_count": 90,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "05_night_pseudocolor_solar_panels_1315",
+      "scene_id": "05",
+      "light_condition": "night",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "solar_panels",
+      "candidate_pair_count": 1315,
+      "valid_pair_count": 1315,
+      "valid_image_count": 2630,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "06_day_pseudocolor_solar_panels_1037",
+      "scene_id": "06",
+      "light_condition": "day",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "solar_panels",
+      "candidate_pair_count": 1037,
+      "valid_pair_count": 1037,
+      "valid_image_count": 2074,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "07_day_grayscale_transmission_tower_102",
+      "scene_id": "07",
+      "light_condition": "day",
+      "thermal_rendering": "grayscale",
+      "view_type": "standard",
+      "scene_family": "transmission_tower",
+      "candidate_pair_count": 102,
+      "valid_pair_count": 102,
+      "valid_image_count": 204,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "08_night_grayscale_urban_422",
+      "scene_id": "08",
+      "light_condition": "night",
+      "thermal_rendering": "grayscale",
+      "view_type": "standard",
+      "scene_family": "urban",
+      "candidate_pair_count": 422,
+      "valid_pair_count": 422,
+      "valid_image_count": 844,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "09_day_pseudocolor_building_614",
+      "scene_id": "09",
+      "light_condition": "day",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "building",
+      "candidate_pair_count": 614,
+      "valid_pair_count": 614,
+      "valid_image_count": 1228,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "10_day_pseudocolor_factory_262",
+      "scene_id": "10",
+      "light_condition": "day",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "factory",
+      "candidate_pair_count": 262,
+      "valid_pair_count": 262,
+      "valid_image_count": 524,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "11_night_grayscale_building_181",
+      "scene_id": "11",
+      "light_condition": "night",
+      "thermal_rendering": "grayscale",
+      "view_type": "standard",
+      "scene_family": "building",
+      "candidate_pair_count": 181,
+      "valid_pair_count": 181,
+      "valid_image_count": 362,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "12_day_grayscale_orchard_588",
+      "scene_id": "12",
+      "light_condition": "day",
+      "thermal_rendering": "grayscale",
+      "view_type": "standard",
+      "scene_family": "orchard",
+      "candidate_pair_count": 588,
+      "valid_pair_count": 588,
+      "valid_image_count": 1176,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "13_lowlight_pseudocolor_road_469",
+      "scene_id": "13",
+      "light_condition": "lowlight",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "road",
+      "candidate_pair_count": 469,
+      "valid_pair_count": 467,
+      "valid_image_count": 934,
+      "excluded_pair_count": 2
+    },
+    {
+      "scene_name": "14_lowlight_pseudocolor_transmission_tower_673",
+      "scene_id": "14",
+      "light_condition": "lowlight",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "transmission_tower",
+      "candidate_pair_count": 673,
+      "valid_pair_count": 673,
+      "valid_image_count": 1346,
+      "excluded_pair_count": 0
+    },
+    {
+      "scene_name": "15_lowlight_pseudocolor_woodland_186",
+      "scene_id": "15",
+      "light_condition": "lowlight",
+      "thermal_rendering": "pseudocolor",
+      "view_type": "standard",
+      "scene_family": "woodland",
+      "candidate_pair_count": 186,
+      "valid_pair_count": 186,
+      "valid_image_count": 372,
+      "excluded_pair_count": 0
+    }
+  ],
+  "per_condition_valid_counts": [
+    {
+      "group_type": "light_condition",
+      "group_value": "day",
+      "num_scenes": 7,
+      "candidate_pair_count": 2703,
+      "valid_pair_count": 2703,
+      "valid_image_count": 5406,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 386.1429
+    },
+    {
+      "group_type": "light_condition",
+      "group_value": "lowlight",
+      "num_scenes": 3,
+      "candidate_pair_count": 1328,
+      "valid_pair_count": 1326,
+      "valid_image_count": 2652,
+      "excluded_pair_count": 2,
+      "macro_valid_pairs_per_scene": 442.0
+    },
+    {
+      "group_type": "light_condition",
+      "group_value": "night",
+      "num_scenes": 5,
+      "candidate_pair_count": 2008,
+      "valid_pair_count": 2008,
+      "valid_image_count": 4016,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 401.6
+    },
+    {
+      "group_type": "thermal_rendering",
+      "group_value": "grayscale",
+      "num_scenes": 8,
+      "candidate_pair_count": 1483,
+      "valid_pair_count": 1483,
+      "valid_image_count": 2966,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 185.375
+    },
+    {
+      "group_type": "thermal_rendering",
+      "group_value": "pseudocolor",
+      "num_scenes": 7,
+      "candidate_pair_count": 4556,
+      "valid_pair_count": 4554,
+      "valid_image_count": 9108,
+      "excluded_pair_count": 2,
+      "macro_valid_pairs_per_scene": 650.5714
+    },
+    {
+      "group_type": "view_type",
+      "group_value": "standard",
+      "num_scenes": 11,
+      "candidate_pair_count": 5849,
+      "valid_pair_count": 5847,
+      "valid_image_count": 11694,
+      "excluded_pair_count": 2,
+      "macro_valid_pairs_per_scene": 531.5455
+    },
+    {
+      "group_type": "view_type",
+      "group_value": "wide",
+      "num_scenes": 2,
+      "candidate_pair_count": 95,
+      "valid_pair_count": 95,
+      "valid_image_count": 190,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 47.5
+    },
+    {
+      "group_type": "view_type",
+      "group_value": "zoom",
+      "num_scenes": 2,
+      "candidate_pair_count": 95,
+      "valid_pair_count": 95,
+      "valid_image_count": 190,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 47.5
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "building",
+      "num_scenes": 2,
+      "candidate_pair_count": 795,
+      "valid_pair_count": 795,
+      "valid_image_count": 1590,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 397.5
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "factory",
+      "num_scenes": 1,
+      "candidate_pair_count": 262,
+      "valid_pair_count": 262,
+      "valid_image_count": 524,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 262.0
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "orchard",
+      "num_scenes": 1,
+      "candidate_pair_count": 588,
+      "valid_pair_count": 588,
+      "valid_image_count": 1176,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 588.0
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "road",
+      "num_scenes": 1,
+      "candidate_pair_count": 469,
+      "valid_pair_count": 467,
+      "valid_image_count": 934,
+      "excluded_pair_count": 2,
+      "macro_valid_pairs_per_scene": 467.0
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "solar_panels",
+      "num_scenes": 2,
+      "candidate_pair_count": 2352,
+      "valid_pair_count": 2352,
+      "valid_image_count": 4704,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 1176.0
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "substation_power_lines",
+      "num_scenes": 4,
+      "candidate_pair_count": 190,
+      "valid_pair_count": 190,
+      "valid_image_count": 380,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 47.5
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "transmission_tower",
+      "num_scenes": 2,
+      "candidate_pair_count": 775,
+      "valid_pair_count": 775,
+      "valid_image_count": 1550,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 387.5
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "urban",
+      "num_scenes": 1,
+      "candidate_pair_count": 422,
+      "valid_pair_count": 422,
+      "valid_image_count": 844,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 422.0
+    },
+    {
+      "group_type": "scene_family",
+      "group_value": "woodland",
+      "num_scenes": 1,
+      "candidate_pair_count": 186,
+      "valid_pair_count": 186,
+      "valid_image_count": 372,
+      "excluded_pair_count": 0,
+      "macro_valid_pairs_per_scene": 186.0
+    }
+  ]
+}

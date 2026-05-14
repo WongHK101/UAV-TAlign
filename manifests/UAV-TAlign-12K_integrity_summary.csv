@@ -1,0 +1,2 @@
+total_candidate_pairs,total_candidate_images,valid_evaluation_pairs,valid_evaluation_images,excluded_pair_count,filename_mismatch_count,decode_invalid_count,duplicate_hash_group_count
+6039,12078,6037,12074,2,0,2,1
