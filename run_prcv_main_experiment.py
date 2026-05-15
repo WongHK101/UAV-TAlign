@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import argparse
 import gc
+import hashlib
 import json
 import random
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence, Tuple
@@ -118,6 +121,50 @@ def _validate_runtime_isolation(
 def _write_json(path: Path, payload: Dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _file_sha256(path: Path, chunk_size: int = 1 << 20) -> str | None:
+    if not path.exists() or not path.is_file():
+        return None
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(chunk_size)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_provenance(path_value: str | Path) -> Dict[str, object]:
+    text = str(path_value or "").strip()
+    if not text:
+        return {"path": "", "exists": False}
+    path = Path(text).resolve()
+    if not path.exists():
+        return {"path": str(path), "exists": False}
+    stat = path.stat()
+    return {
+        "path": str(path),
+        "exists": True,
+        "size_bytes": int(stat.st_size),
+        "mtime": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)),
+        "sha256": _file_sha256(path),
+    }
+
+
+def _git_commit(repo_root: Path) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(repo_root),
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        return result.stdout.strip()
+    except Exception:
+        return "unknown"
 
 
 def _append_jsonl(path: Path, payload: Dict[str, object]) -> None:
@@ -504,11 +551,25 @@ def main() -> None:
         manifest_path=manifest_path,
     )
     grouped_pairs = group_pairs_by_scene(all_pairs)
+    runtime_environment = {
+        "python_executable": sys.executable,
+        "python_version": sys.version.replace("\n", " "),
+        "git_commit": _git_commit(repo_root),
+    }
+    weight_provenance = {
+        "raw_minima_ckpt": _file_provenance(args.raw_minima_ckpt),
+        "uav_talign_minima_ckpt": _file_provenance(args.uav_talign_minima_ckpt),
+        "official_xoftr_ckpt": _file_provenance(args.official_xoftr_ckpt),
+        "loftr_source": "kornia.feature.LoFTR(pretrained='outdoor')",
+        "roma_source": "third_party.MINIMA.third_party.RoMa_minima.romatch.roma_outdoor",
+    }
 
     config_payload = {
         "dataset_root": str(dataset_root),
         "dataset_manifest": dataset_manifest,
         "output_root": str(output_root),
+        "runtime_environment": runtime_environment,
+        "weight_provenance": weight_provenance,
         "methods": methods,
         "scene_names": None if scene_names is None else list(scene_names),
         "pair_ids_by_scene": pair_ids_by_scene,
@@ -670,6 +731,8 @@ def main() -> None:
         "dataset_root": str(dataset_root),
         "dataset_manifest": dataset_manifest,
         "output_root": str(output_root),
+        "runtime_environment": runtime_environment,
+        "weight_provenance": weight_provenance,
         "methods": methods,
         "scene_names": None if scene_names is None else list(scene_names),
         "pair_ids_by_scene": pair_ids_by_scene,
