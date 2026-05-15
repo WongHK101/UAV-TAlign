@@ -216,10 +216,16 @@ class MinimaMatcherBridge:
             ckpt_path = Path(self.ckpt).resolve()
             if not ckpt_path.exists():
                 raise FileNotFoundError(f"Specified MINIMA checkpoint not found: {ckpt_path}")
+            if ckpt_path.is_file() and ckpt_path.stat().st_size <= 0:
+                raise FileNotFoundError(f"Specified MINIMA checkpoint is empty: {ckpt_path}")
             return str(ckpt_path)
-        default_path = (self.minima_root / "weights" / default_name).resolve()
-        if default_path.exists():
-            return str(default_path)
+        candidate_names = [default_name]
+        if default_name == "minima_roma.pth":
+            candidate_names.append("minima_roma_full.pth")
+        for candidate_name in candidate_names:
+            default_path = (self.minima_root / "weights" / candidate_name).resolve()
+            if default_path.exists() and default_path.is_file() and default_path.stat().st_size > 0:
+                return str(default_path)
         return None
 
     def _build_matcher_from_paths(self):
