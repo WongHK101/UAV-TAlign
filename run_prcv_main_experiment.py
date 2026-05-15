@@ -49,6 +49,25 @@ def _parse_scene_names(raw: str) -> List[str] | None:
     return items or None
 
 
+def _parse_pair_ids_by_scene(raw: str) -> Dict[str, List[str]] | None:
+    value = str(raw or "").strip()
+    if not value:
+        return None
+    candidate_path = Path(value)
+    if candidate_path.exists():
+        payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    else:
+        payload = json.loads(value)
+    if not isinstance(payload, dict):
+        raise ValueError("--pair_ids_by_scene_json must decode to an object mapping scene names to pair-id lists.")
+    parsed: Dict[str, List[str]] = {}
+    for scene_name, pair_ids in payload.items():
+        if not isinstance(pair_ids, list):
+            raise ValueError(f"Pair IDs for scene {scene_name!r} must be provided as a list.")
+        parsed[str(scene_name)] = [str(pair_id).strip() for pair_id in pair_ids if str(pair_id).strip()]
+    return parsed
+
+
 def _is_relative_to(path: Path, other: Path) -> bool:
     try:
         path.relative_to(other)
@@ -426,6 +445,7 @@ def main() -> None:
     ap.add_argument("--output_root", default=str(repo_root / "outputs" / "prcv_main_experiment"))
     ap.add_argument("--methods", default="raw_minima,uav_talign_full")
     ap.add_argument("--scene_names", default="")
+    ap.add_argument("--pair_ids_by_scene_json", default="")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--loftr_match_max_dim", type=int, default=0)
     ap.add_argument("--loftr_use_amp", type=_str2bool, nargs="?", const=True, default=False)
@@ -465,6 +485,9 @@ def main() -> None:
     minima_root = Path(args.minima_root).resolve()
     methods = _parse_methods(args.methods)
     scene_names = _parse_scene_names(args.scene_names)
+    pair_ids_by_scene = _parse_pair_ids_by_scene(args.pair_ids_by_scene_json)
+    if scene_names is None and pair_ids_by_scene:
+        scene_names = list(pair_ids_by_scene.keys())
     _set_reproducible_seed(int(args.seed))
     isolation_info = _validate_runtime_isolation(
         dataset_root=dataset_root,
@@ -474,7 +497,12 @@ def main() -> None:
 
     manifest_path = args.manifest_path.strip() or None
     dataset_manifest = manifest_provenance(dataset_root=dataset_root, manifest_path=manifest_path)
-    all_pairs = list_dataset_pairs(dataset_root=dataset_root, scene_names=scene_names, manifest_path=manifest_path)
+    all_pairs = list_dataset_pairs(
+        dataset_root=dataset_root,
+        scene_names=scene_names,
+        pair_ids_by_scene=pair_ids_by_scene,
+        manifest_path=manifest_path,
+    )
     grouped_pairs = group_pairs_by_scene(all_pairs)
 
     config_payload = {
@@ -483,6 +511,7 @@ def main() -> None:
         "output_root": str(output_root),
         "methods": methods,
         "scene_names": None if scene_names is None else list(scene_names),
+        "pair_ids_by_scene": pair_ids_by_scene,
         "num_scenes": int(len(grouped_pairs)),
         "num_pairs": int(len(all_pairs)),
         "device": str(args.device),
@@ -643,6 +672,7 @@ def main() -> None:
         "output_root": str(output_root),
         "methods": methods,
         "scene_names": None if scene_names is None else list(scene_names),
+        "pair_ids_by_scene": pair_ids_by_scene,
         "num_scenes": int(len(grouped_pairs)),
         "num_pairs": int(len(all_pairs)),
         "seed": int(args.seed),
