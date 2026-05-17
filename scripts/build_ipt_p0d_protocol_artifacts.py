@@ -109,6 +109,35 @@ def build_risk_coverage(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def build_canonical_operating_point(df: pd.DataFrame) -> dict:
+    """Summarize the strict canonical QA-gate subset.
+
+    This is intentionally separate from the score-ranked risk-coverage curve:
+    the canonical gate defines retained alignment products, while the score is
+    only used to visualize operating profiles.
+    """
+
+    subset = df[df["canonical_scene_pass"]].copy()
+    total_scenes = float(len(df))
+    total_pairs = float(df["valid_pairs"].sum())
+    return {
+        "operating_point": "canonical_qa_gate",
+        "retained_scene_count": int(len(subset)),
+        "scene_coverage": float(len(subset)) / total_scenes if total_scenes else 0.0,
+        "pair_coverage_micro": float(subset["valid_pairs"].sum()) / total_pairs if total_pairs else 0.0,
+        "mean_reliability_score": float(subset["reliability_score"].mean()) if len(subset) else 0.0,
+        "mean_severe_outlier_ratio": float(subset["severe_outlier_ratio"].mean()) if len(subset) else 0.0,
+        "mean_robust_reject_ratio": float(subset["robust_reject_ratio"].mean()) if len(subset) else 0.0,
+        "mean_delta_edge_f1": float(subset["delta_edge_f1"].mean()) if len(subset) else 0.0,
+        "mean_delta_grad_ncc": float(subset["delta_grad_ncc"].mean()) if len(subset) else 0.0,
+        "mean_accepted_ratio_macro": float(subset["accepted_ratio"].mean()) if len(subset) else 0.0,
+        "accepted_attempted_ratio_micro": float(subset["accepted_frames"].sum())
+        / float(max(subset["attempted_frames"].sum(), 1)),
+        "accepted_total_ratio_micro": float(subset["accepted_frames"].sum()) / float(max(subset["valid_pairs"].sum(), 1)),
+        "retained_scene_ids": ",".join(str(x) for x in subset.sort_values("scene_id")["scene_id"].tolist()),
+    }
+
+
 def build_threshold_sensitivity(df: pd.DataFrame) -> pd.DataFrame:
     thresholds = list(range(95, 24, -5))
     rows: list[dict] = []
@@ -206,17 +235,45 @@ def build_condition_profile(df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def save_figures(df: pd.DataFrame, risk_df: pd.DataFrame, sensitivity_df: pd.DataFrame, cond_df: pd.DataFrame, out_dir: Path) -> None:
+def save_figures(
+    df: pd.DataFrame,
+    risk_df: pd.DataFrame,
+    sensitivity_df: pd.DataFrame,
+    cond_df: pd.DataFrame,
+    canonical_point: dict,
+    out_dir: Path,
+) -> None:
     plt.style.use("seaborn-v0_8-whitegrid")
 
     fig, ax1 = plt.subplots(figsize=(7.6, 4.4))
     ax1.plot(risk_df["scene_coverage"], risk_df["mean_severe_outlier_ratio"], marker="o", label="Mean severe outlier ratio")
     ax1.plot(risk_df["scene_coverage"], risk_df["mean_robust_reject_ratio"], marker="s", label="Mean robust reject ratio")
+    ax1.scatter(
+        [canonical_point["scene_coverage"]],
+        [canonical_point["mean_severe_outlier_ratio"]],
+        marker="*",
+        s=190,
+        color="#d62728",
+        edgecolor="black",
+        linewidth=0.5,
+        zorder=5,
+        label="Canonical gate",
+    )
     ax1.set_xlabel("Scene coverage")
     ax1.set_ylabel("Risk proxy (lower is better)")
     ax1.set_ylim(bottom=0)
     ax2 = ax1.twinx()
     ax2.plot(risk_df["scene_coverage"], risk_df["mean_accepted_ratio_macro"], color="#2ca02c", marker="^", label="Mean accepted ratio")
+    ax2.scatter(
+        [canonical_point["scene_coverage"]],
+        [canonical_point["mean_accepted_ratio_macro"]],
+        marker="*",
+        s=160,
+        color="#2ca02c",
+        edgecolor="black",
+        linewidth=0.5,
+        zorder=5,
+    )
     ax2.set_ylabel("Accepted ratio (higher is better)")
     ax2.set_ylim(0, 1.05)
     lines, labels = ax1.get_legend_handles_labels()
@@ -323,6 +380,7 @@ def write_summary(
     risk_df: pd.DataFrame,
     sensitivity_df: pd.DataFrame,
     cond_df: pd.DataFrame,
+    canonical_point: dict,
 ) -> None:
     canonical_pass = int(df["canonical_scene_pass"].sum())
     total = int(len(df))
@@ -341,7 +399,9 @@ def write_summary(
         "## Main Findings",
         f"- UAV-TAlign produces scene-level homographies for `{total}/{total}` scenes and retains `{canonical_pass}/{total}` scenes under the strict canonical QA-controlled operating point.",
         "- The P0-D reliability score provides an interpretable ordering for coverage analysis without changing the canonical result.",
-        f"- At 9 retained scenes by reliability ranking, scene coverage is `{_pct(top9['scene_coverage'])}` and pair coverage is `{_pct(top9['pair_coverage_micro'])}`; the mean severe-outlier ratio is `{top9['mean_severe_outlier_ratio']:.3f}`.",
+        f"- The canonical QA gate retains `{canonical_point['retained_scene_ids']}` with scene coverage `{_pct(canonical_point['scene_coverage'])}` and pair coverage `{_pct(canonical_point['pair_coverage_micro'])}`.",
+        f"- At 9 retained scenes by score ranking, scene coverage is `{_pct(top9['scene_coverage'])}` and pair coverage is `{_pct(top9['pair_coverage_micro'])}`; the mean severe-outlier ratio is `{top9['mean_severe_outlier_ratio']:.3f}`.",
+        "- The score-ranked top-K operating points and the canonical retained-scene set are related but not identical; the score-ranked curve is used for operating-profile visualization, not as a replacement for the canonical QA gate.",
         "- Risk-coverage and threshold-sensitivity curves should be used to present the operating trade-off rather than relaxing the canonical result.",
         "",
         "## Named Operating Regimes",
@@ -360,12 +420,13 @@ def write_summary(
             "## Artifacts",
             "- `reliability_score_design.md`",
             "- `per_scene_reliability_table.csv`",
+            "- `canonical_operating_point.csv`",
             "- `risk_coverage.csv` and `risk_coverage_curve.pdf/png`",
             "- `threshold_sensitivity.csv` and `threshold_sensitivity.pdf/png`",
             "- `condition_reliability_profile.csv` and `condition_reliability_profile.pdf/png`",
             "",
             "## Suggested Paper Wording",
-            "Under the strict canonical reliability gate, UAV-TAlign produces scene-level homographies for all 15 scenes and retains 9 scenes as high-confidence operating points. The risk-coverage profile further exposes a tunable reliability--coverage trade-off without changing the canonical result.",
+            "Under the strict canonical reliability gate, UAV-TAlign produces scene-level homographies for all 15 scenes and retains 9 scenes as high-confidence operating points. The risk-coverage curve is a score-ranked operating profile, with the canonical 9/15 point marked explicitly; it visualizes reliability--coverage trade-offs without replacing the canonical decision rule.",
         ]
     )
     (out_dir / "paper_facing_summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -403,6 +464,7 @@ def main() -> None:
     df = add_reliability_score(df)
     df = df.sort_values("scene_id")
     risk_df = build_risk_coverage(df)
+    canonical_point = build_canonical_operating_point(df)
     sensitivity_df = build_threshold_sensitivity(df)
     cond_df = build_condition_profile(df)
 
@@ -434,13 +496,14 @@ def main() -> None:
         "qa_warning_codes",
     ]
     df[per_scene_columns].sort_values("scene_id").to_csv(output_dir / "per_scene_reliability_table.csv", index=False)
+    pd.DataFrame([canonical_point]).to_csv(output_dir / "canonical_operating_point.csv", index=False)
     risk_df.to_csv(output_dir / "risk_coverage.csv", index=False)
     sensitivity_df.to_csv(output_dir / "threshold_sensitivity.csv", index=False)
     cond_df.to_csv(output_dir / "condition_reliability_profile.csv", index=False)
 
     write_design_doc(output_dir)
-    save_figures(df, risk_df, sensitivity_df, cond_df, output_dir)
-    write_summary(output_dir, summary, df, risk_df, sensitivity_df, cond_df)
+    save_figures(df, risk_df, sensitivity_df, cond_df, canonical_point, output_dir)
+    write_summary(output_dir, summary, df, risk_df, sensitivity_df, cond_df, canonical_point)
 
     print(output_dir)
 
