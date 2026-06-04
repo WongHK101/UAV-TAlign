@@ -209,7 +209,20 @@ def build_threshold_sensitivity(df: pd.DataFrame) -> pd.DataFrame:
 
 def build_condition_profile(df: pd.DataFrame) -> pd.DataFrame:
     rows: list[dict] = []
-    for group_by in ["light_condition", "thermal_rendering", "view"]:
+    # ``view_type`` and ``scene_family`` are the protocol-aligned condition
+    # axes (BENCHMARK_PROTOCOL.md §2). The runner emits them alongside the
+    # legacy ``view`` / ``scene_label`` field names; here we prefer the
+    # protocol names and fall back so older P0-C outputs still load.
+    condition_axes = [
+        "light_condition",
+        "thermal_rendering",
+        "view_type" if "view_type" in df.columns else "view",
+    ]
+    if "scene_family" in df.columns or "scene_label" in df.columns:
+        condition_axes.append(
+            "scene_family" if "scene_family" in df.columns else "scene_label"
+        )
+    for group_by in condition_axes:
         for group, subset in df.groupby(group_by, dropna=False):
             valid_pairs = float(subset["valid_pairs"].sum())
             attempted = float(subset["attempted_frames"].sum())
@@ -459,8 +472,18 @@ def main() -> None:
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
     df = pd.DataFrame(rows)
-    if "view" in df.columns:
-        df["view"] = df["view"].fillna("general").replace({"None": "general", "": "general"})
+    # Mirror legacy ``view`` / ``scene_label`` into the protocol-aligned
+    # ``view_type`` / ``scene_family`` columns when only the legacy names
+    # are present. This lets the rest of the script consume a single
+    # unified column name regardless of whether the upstream P0-C run was
+    # produced before or after the BENCHMARK_PROTOCOL.md alignment.
+    if "view_type" not in df.columns and "view" in df.columns:
+        df["view_type"] = df["view"]
+    if "scene_family" not in df.columns and "scene_label" in df.columns:
+        df["scene_family"] = df["scene_label"]
+    for col in ("view", "view_type"):
+        if col in df.columns:
+            df[col] = df[col].fillna("general").replace({"None": "general", "": "general"})
     df = add_reliability_score(df)
     df = df.sort_values("scene_id")
     risk_df = build_risk_coverage(df)
@@ -473,7 +496,8 @@ def main() -> None:
         "scene_name",
         "light_condition",
         "thermal_rendering",
-        "view",
+        "view_type" if "view_type" in df.columns else "view",
+        "scene_family" if "scene_family" in df.columns else "scene_label",
         "valid_pairs",
         "qa_status",
         "canonical_scene_pass",

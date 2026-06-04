@@ -31,6 +31,13 @@ intentionally excluded from Git.
 - `run_prcv_main_experiment.py`
   Main evaluation runner for `UAV-TAlign-1K-Lite` and `UAV-TAlign-12K`. The
   historical filename is retained for compatibility.
+- `BENCHMARK_PROTOCOL.md`
+  Authoritative public specification of the UAV-TAlign-12K benchmark protocol:
+  the three evaluation tracks, output schemas, status codes, canonical gate vs
+  reliability score, statistical views, and reporting stack.
+- `DATASET_MANIFEST_SCHEMA.md`
+  Dataset metadata schema (per-scene fields, manifest layout, integrity report).
+  Complements the benchmark protocol document.
 - `scripts/audit_uav_talign_dataset.py`
   Read-only dataset audit utility that emits scene, condition, integrity, and
   frozen-manifest artifacts.

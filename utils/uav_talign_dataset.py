@@ -9,8 +9,8 @@ from typing import Dict, Iterable, List, Mapping, Sequence
 
 SMOKE_TEST_PAIR_IDS: Dict[str, List[str]] = {
     "01_day_grayscale_wide_substation_power_lines_50": ["000001", "000013", "000025", "000037", "000050"],
-    "08_night_grayscale_urban_22": ["000001", "000006", "000011", "000016", "000022"],
-    "13_lowlight_pseudocolor_road_21": ["000001", "000006", "000011", "000016", "000021"],
+    "08_night_grayscale_urban_422": ["000001", "000106", "000211", "000316", "000422"],
+    "13_lowlight_pseudocolor_road_469": ["000001", "000118", "000235", "000352", "000469"],
 }
 
 
@@ -25,6 +25,17 @@ class PairRecord:
     thermal_rendering: str
     view: str
     scene_label: str
+
+    # Protocol-aligned aliases. The manifest field names are kept as ``view`` and
+    # ``scene_label`` for hash stability, while downstream consumers should
+    # prefer the protocol names ``view_type`` and ``scene_family``.
+    @property
+    def view_type(self) -> str:
+        return self.view
+
+    @property
+    def scene_family(self) -> str:
+        return self.scene_label
 
 
 def _load_manifest(dataset_root: Path, manifest_path: str | Path | None = None) -> tuple[Dict[str, object], Path]:
