@@ -49,6 +49,22 @@ Infrared Physics & Technology version of UAV-TAlign.
 | `excluded_pair_ids` | Pair IDs excluded by an official filtered evaluation manifest. |
 | `integrity` | Filename mismatch, decode-invalid, and duplicate-hash counters. |
 
+### Field-Name Compatibility Note
+
+The manifest JSON stores the historical names `view` and `scene_label`. The benchmark
+protocol (see `BENCHMARK_PROTOCOL.md` §2 and §9) uses the names `view_type` and
+`scene_family`. To preserve the canonical manifest SHA256 while aligning paper-facing
+terminology, the manifest field names are unchanged and the runner emits both sets of
+names in its JSONL outputs:
+
+- `view` (manifest) ⇄ `view_type` (protocol)
+- `scene_label` (manifest) ⇄ `scene_family` (protocol)
+
+The `PairRecord` dataclass exposes `view_type` and `scene_family` as read-only aliases of
+`view` and `scene_label`, and downstream consumers (e.g.
+`scripts/build_ipt_p0d_protocol_artifacts.py`) prefer the protocol names with a fallback
+to the manifest names.
+
 ## Official 12K Evaluation Manifest
 
 The journal-facing `UAV-TAlign-12K` benchmark uses an official

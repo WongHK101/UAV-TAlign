@@ -279,8 +279,14 @@ def _pair_meta(pair: PairRecord) -> Dict[str, object]:
         "thermal_path": pair.thermal_path,
         "light_condition": pair.light_condition,
         "thermal_rendering": pair.thermal_rendering,
+        # ``view`` / ``scene_label`` are kept for backward compatibility with
+        # the manifest field names. ``view_type`` / ``scene_family`` are the
+        # protocol-aligned names used by the BENCHMARK_PROTOCOL.md schema and
+        # by downstream P0-D summaries.
         "view": pair.view,
+        "view_type": pair.view_type,
         "scene_label": pair.scene_label,
+        "scene_family": pair.scene_family,
     }
 
 
@@ -329,21 +335,43 @@ def _scene_result_record(
     coverage_summary = accepted_summary.get("coverage", {}) or {}
     num_attempted_frames = int(band_payload.get("num_attempted_frames", 0))
     num_accepted_frames = int(band_payload.get("num_accepted_frames", 0))
+    accepted_ratio = (
+        float(num_accepted_frames) / float(num_attempted_frames)
+        if num_attempted_frames > 0
+        else 0.0
+    )
     canonical_min_good_frames = int(band_payload.get("canonical_min_good_frames", 0))
     qa_status = str(band_payload.get("qa_status", "unknown"))
     homography_available = bool(band_payload.get("T_opt"))
     canonical_scene_pass = bool(band_payload.get("canonical_scene_pass", False))
+    # Protocol-aligned 5-state status code:
+    #   pass / pass_with_warning / fail / canonical_fail / error
+    # ``canonical_scene_pass`` is the hard gate y_S; scenes that pass it inherit
+    # ``pass`` (clean QA) or ``pass_with_warning`` (QA emitted warning side guards).
+    # Scenes that fail it map to ``canonical_fail`` (specific failure reason)
+    # or ``fail`` (generic QA failure with no canonical reason recorded).
+    if canonical_scene_pass:
+        status = "pass_with_warning" if qa_status == "pass_with_warning" else "pass"
+    else:
+        if band_payload.get("canonical_failure_reason"):
+            status = "canonical_fail"
+        else:
+            status = "fail"
     return {
         "method": "uav_talign_full",
         "scene_id": str(pairs[0].scene_id),
         "scene_name": scene_name,
         "pair_id": "__scene__",
         "num_pairs_total": int(len(pairs)),
-        "status": "ok" if canonical_scene_pass else "canonical_fail",
+        "status": status,
         "light_condition": pairs[0].light_condition,
         "thermal_rendering": pairs[0].thermal_rendering,
+        # Backward-compatible manifest-aligned names.
         "view": pairs[0].view,
         "scene_label": pairs[0].scene_label,
+        # Protocol-aligned aliases (BENCHMARK_PROTOCOL.md schema).
+        "view_type": pairs[0].view_type,
+        "scene_family": pairs[0].scene_family,
         "num_matches": int(round(float(num_matches_summary.get("mean", 0.0) or 0.0))),
         "num_inliers": int(round(float(num_inliers_summary.get("mean", 0.0) or 0.0))),
         "inlier_ratio": float(inlier_ratio_summary.get("mean", 0.0) or 0.0),
@@ -355,6 +383,7 @@ def _scene_result_record(
         "num_attempted_frames": int(num_attempted_frames),
         "num_accepted_frames": int(num_accepted_frames),
         "accepted_frames": int(num_accepted_frames),
+        "accepted_ratio": float(accepted_ratio),
         "canonical_min_good_frames": int(canonical_min_good_frames),
         "canonical_scene_pass": bool(canonical_scene_pass),
         "canonical_failure_reason": band_payload.get("canonical_failure_reason"),
@@ -458,6 +487,8 @@ def _run_uav_talign_scene_method(
             "thermal_rendering": pairs[0].thermal_rendering,
             "view": pairs[0].view,
             "scene_label": pairs[0].scene_label,
+            "view_type": pairs[0].view_type,
+            "scene_family": pairs[0].scene_family,
             "num_matches": 0,
             "num_inliers": 0,
             "inlier_ratio": 0.0,
@@ -612,6 +643,8 @@ def main() -> None:
                 "thermal_rendering": pairs[0].thermal_rendering,
                 "view": pairs[0].view,
                 "scene_label": pairs[0].scene_label,
+                "view_type": pairs[0].view_type,
+                "scene_family": pairs[0].scene_family,
             }
             for scene_name, pairs in grouped_pairs.items()
         ],
