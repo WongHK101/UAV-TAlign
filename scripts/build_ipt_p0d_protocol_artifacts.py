@@ -40,6 +40,105 @@ def load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+def resolve_metrics_path(input_dir: Path) -> Path:
+    candidates = (
+        input_dir / "uav_talign_full_scene_metrics_detailed.jsonl",
+        input_dir / "uav_talign_full" / "scene_results.jsonl",
+        input_dir / "uav_talign_full" / "results.jsonl",
+    )
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    raise FileNotFoundError(
+        "Could not find UAV-TAlign scene metrics JSONL. Checked: "
+        + ", ".join(str(path) for path in candidates)
+    )
+
+
+def _load_scene_payloads(input_dir: Path) -> dict[str, dict]:
+    scene_root = input_dir / "uav_talign_full"
+    payloads: dict[str, dict] = {}
+    if not scene_root.is_dir():
+        return payloads
+    for scene_dir in scene_root.iterdir():
+        if not scene_dir.is_dir():
+            continue
+        scene_result_path = scene_dir / "scene_result.json"
+        if not scene_result_path.is_file():
+            continue
+        try:
+            scene_result = json.loads(scene_result_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        record = scene_result.get("record", {}) if isinstance(scene_result, dict) else {}
+        band_payload = scene_result.get("band_payload", {}) if isinstance(scene_result, dict) else {}
+        scene_name = str(record.get("scene_name") or scene_dir.name)
+        payloads[scene_name] = band_payload if isinstance(band_payload, dict) else {}
+    return payloads
+
+
+def _fill_missing(row: dict, key: str, value: object) -> None:
+    if value is None:
+        return
+    if key not in row or row[key] in (None, "", [], {}):
+        row[key] = value
+
+
+def enrich_scene_metric_rows(input_dir: Path, rows: list[dict]) -> list[dict]:
+    payloads = _load_scene_payloads(input_dir)
+    enriched_rows: list[dict] = []
+    for raw_row in rows:
+        row = dict(raw_row)
+        scene_name = str(row.get("scene_name", ""))
+        band_payload = payloads.get(scene_name, {})
+        qa_inputs = band_payload.get("qa_decision_inputs", {}) if isinstance(band_payload, dict) else {}
+        final_stop = band_payload.get("final_stop_criteria", {}) if isinstance(band_payload, dict) else {}
+
+        num_pairs_total = int(row.get("num_pairs_total", 0) or 0)
+        attempted_frames = int(row.get("num_attempted_frames", 0) or 0)
+        accepted_frames = int(row.get("accepted_frames", row.get("num_accepted_frames", 0)) or 0)
+
+        _fill_missing(row, "valid_pairs", num_pairs_total)
+        _fill_missing(row, "attempted_frames", attempted_frames)
+        _fill_missing(row, "accepted_frames", accepted_frames)
+        if num_pairs_total > 0:
+            _fill_missing(row, "accepted_total_ratio", float(accepted_frames) / float(num_pairs_total))
+
+        # Fill protocol-analysis fields from the richer scene_result.json payload.
+        for key in (
+            "severe_outlier_count",
+            "severe_outlier_ratio",
+            "robust_reject_ratio",
+            "delta_edge_f1",
+            "delta_grad_ncc",
+            "improved_grad_ratio",
+            "mean_inlier_ratio",
+            "mean_coverage",
+            "mean_reproj_error",
+            "median_disp_to_aggregate_mean_px",
+            "median_disp_to_aggregate_mean_rel",
+            "warning_min_delta_edge_f1",
+            "warning_min_grad_improved_ratio",
+            "warning_max_severe_outlier_ratio",
+            "warning_max_severe_outlier_count",
+            "min_warning_accepted_ratio",
+            "stability_warn_mean_px",
+            "max_robust_reject_ratio",
+        ):
+            _fill_missing(row, key, qa_inputs.get(key))
+            _fill_missing(row, key, final_stop.get(key))
+
+        # Backward-compatible fallbacks from the scene-level record itself.
+        _fill_missing(row, "mean_inlier_ratio", row.get("inlier_ratio"))
+        _fill_missing(row, "mean_coverage", row.get("coverage"))
+        _fill_missing(row, "mean_reproj_error", row.get("reprojection_error"))
+        _fill_missing(row, "qa_warning_codes", band_payload.get("qa_warning_codes"))
+        _fill_missing(row, "qa_warning_codes", final_stop.get("qa_warning_codes"))
+
+        enriched_rows.append(row)
+    return enriched_rows
+
+
 def add_reliability_score(df: pd.DataFrame) -> pd.DataFrame:
     """Add an interpretable, non-trained scene reliability score.
 
@@ -466,9 +565,9 @@ def main() -> None:
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    metrics_path = input_dir / "uav_talign_full_scene_metrics_detailed.jsonl"
+    metrics_path = resolve_metrics_path(input_dir)
     summary_path = input_dir / "main_experiment_summary.json"
-    rows = load_jsonl(metrics_path)
+    rows = enrich_scene_metric_rows(input_dir, load_jsonl(metrics_path))
     summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
     df = pd.DataFrame(rows)

@@ -20,6 +20,13 @@ conda activate uav-talign
 #   <your path>/weights_xoftr_640.ckpt
 ```
 
+Current audited Windows 4090 host note:
+
+- The runnable environment on `G:\UAV-TAlign` is the prefix environment
+  `G:\UAV-TAlign\uav_talign_envs\uav-talign-e10a8be-py310`.
+- On that host, prefer `conda run -p ...` or the PowerShell launchers under
+  `scripts/`; do not assume `conda run -n uav-talign` exists.
+
 Verify environment and data before any real run:
 
 ```bash
@@ -31,7 +38,14 @@ python run_prcv_smoke_test.py \
   --device cuda
 ```
 
-**Smoke checkpoint:** Both methods must reach 15/15 records with no errors. Confirm `manifest_sha256` in the summary equals `a092f7ad00c6e02ead3bd39de5c246001f1d4bebbc4105ba715ef37bbb202c6c`.
+**Smoke checkpoint:** Confirm `manifest_sha256` in the summary equals
+`a092f7ad00c6e02ead3bd39de5c246001f1d4bebbc4105ba715ef37bbb202c6c`.
+On the currently audited Windows 4090 host, the accepted smoke reference is:
+
+- `akaze_ransac`: `15/15 ok`
+- `sift_ransac`: `14 ok + 1 fit_failed`
+- the isolated SIFT failure is scene `13_lowlight_pseudocolor_road_469`, pair
+  `000235`, and does not block the formal 12K run
 
 ---
 
@@ -56,6 +70,18 @@ python run_prcv_main_experiment.py \
   --official_xoftr_ckpt /path/to/weights_xoftr_640.ckpt
 ```
 
+Current Windows 4090 host shortcut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\server_run_prcv_main_12k_windows.ps1 `
+  -DatasetRoot G:\UAV-TAlign\UAV-TAlign-12K `
+  -OfficialXoftrCkpt <PATH_TO_WEIGHTS_XOFTR_640_CKPT>
+```
+
+The Windows launcher uses the audited prefix environment, writes stdout/stderr
+to separate `_launcher` logs, and validates the finished output package with
+`scripts/check_prcv_main_outputs.py`.
+
 **Estimated runtime (RTX 4090):** 4–6 hours total for all methods.
 
 **Checkpoint — must pass before P2:**
@@ -77,14 +103,15 @@ python run_prcv_main_experiment.py \
 ```
 outputs/ipt_p0c_12k_main/
   main_experiment_summary.json                     ← REQUIRED for P2
-  uav_talign_full_scene_metrics_detailed.jsonl     ← REQUIRED for P2
   sift_ransac/results.jsonl
   akaze_ransac/results.jsonl
   loftr_outdoor/results.jsonl
   roma_outdoor/results.jsonl
   xoftr_official/results.jsonl
   raw_minima/results.jsonl
+  uav_talign_full/results.jsonl
   uav_talign_full/scene_results.jsonl
+  uav_talign_full_scene_metrics_detailed.jsonl
 ```
 
 ---
@@ -125,6 +152,14 @@ python scripts/build_ipt_p0d_protocol_artifacts.py \
   --output_dir outputs/ipt_p0d_protocol_closure
 ```
 
+Current Windows 4090 host shortcut:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\server_run_prcv_protocol_artifacts_windows.ps1 `
+  -InputDir G:\UAV-TAlign\UAV-TAlign\outputs\ipt_p0c_12k_main `
+  -OutputDir G:\UAV-TAlign\UAV-TAlign\outputs\ipt_p0d_protocol_closure
+```
+
 **Runtime:** < 5 minutes.
 
 **Checkpoint — verify all 7 output files exist:**
@@ -153,10 +188,9 @@ If these numbers differ from the paper values, **stop and report** before contin
 This produces the cumulative ablation table (already in the paper, but re-run validates reproducibility).
 
 ```bash
-bash scripts/server_run_prcv_ablation_wave.sh \
-  /path/to/UAV-TAlign-12K \
-  manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json \
-  outputs/ipt_ablation_wave
+ENV_PREFIX=/path/to/prefix-env \
+OUTPUT_ROOT=outputs/ipt_ablation_wave \
+bash scripts/server_run_prcv_ablation_wave.sh
 ```
 
 The script runs 4 variants on the fixed 1K-Lite / 8-scene subset:
@@ -173,10 +207,9 @@ The script runs 4 variants on the fixed 1K-Lite / 8-scene subset:
 ### P4 — Multi-Seed Sensitivity Supplement (requires P1 environment)
 
 ```bash
-bash scripts/server_run_prcv_s1_multiseed.sh \
-  /path/to/UAV-TAlign-12K \
-  manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json \
-  outputs/ipt_multiseed
+ENV_PREFIX=/path/to/prefix-env \
+OUTPUT_ROOT=outputs/ipt_multiseed \
+bash scripts/server_run_prcv_s1_multiseed.sh
 ```
 
 Runs the same 8-scene subset with random frame selection over multiple seeds.
@@ -205,6 +238,8 @@ Before sending results, verify each item:
 
 - [ ] `manifest_sha256` in `main_experiment_summary.json` == `a092f7ad00c6e02ead3bd39de5c246001f1d4bebbc4105ba715ef37bbb202c6c`
 - [ ] Total pairwise records per method == **6037** (not 6039)
+- [ ] `uav_talign_full/results.jsonl` has exactly **15 lines**
+- [ ] `uav_talign_full/scene_results.jsonl` has exactly **15 lines**
 - [ ] `uav_talign_full_scene_metrics_detailed.jsonl` has exactly **15 lines**
 - [ ] `retained_scenes = 9/15` in `paper_facing_summary.md`
 - [ ] `per_scene_reliability_table.csv` has 15 rows
