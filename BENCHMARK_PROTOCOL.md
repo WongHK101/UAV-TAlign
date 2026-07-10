@@ -261,7 +261,7 @@ All formal runs must record:
 | `code_commit_hash` | `git rev-parse HEAD` |
 | `weights_provenance` | per-method checkpoint origin |
 | `image_resize_policy` | per-method preprocessing |
-| `robust_backend` | `USAC-MAGSAC` (reproj_threshold=3.0, confidence=0.999, max_iter=10000) |
+| `robust_backend` | Shared evaluator: `USAC-MAGSAC` (reproj_threshold=3.0, confidence=0.999, max_iter=10000); independently integrated methods must record their evaluated setting |
 | `scene_pass_policy` | canonical gate (fixed thresholds) |
 | `qa_threshold_version` | QA bundle identifier |
 | `seed` | random seed |
@@ -306,6 +306,12 @@ All formal runs must record:
 
 All learning-based methods use public pretrained weights without training or fine-tuning
 on UAV-TAlign-12K.
+
+The accepted RIFT2 Python run is an independently integrated, resize-aware
+baseline and records `USAC-MAGSAC` with `reproj_threshold=5.0`. It must not be
+described as a shared-threshold 3.0 result. The accepted LoFTR row may be
+sourced from an isolated resize-aware output package, provided the composite
+validator records the override and verifies the same official manifest.
 
 ---
 

@@ -41,7 +41,7 @@ The execution chain is:
 The required main-run output package is:
 
 ```text
-outputs/<run_name>/
+runs/<run_name>/
   experiment_config.json
   main_experiment_summary.json
   sift_ransac/results.jsonl
@@ -59,7 +59,7 @@ outputs/<run_name>/
 The required protocol-closure package is:
 
 ```text
-outputs/<protocol_name>/
+runs/<protocol_name>/
   canonical_operating_point.csv
   per_scene_reliability_table.csv
   threshold_sensitivity.csv
@@ -115,11 +115,16 @@ The current method-specific guardrail is LoFTR.
   `--loftr_match_max_dim 1200 --loftr_use_amp true`
 - If LoFTR is launched without a safe profile and returns all-error outputs,
   the run is treated as benchmark-invalid even if the file tree is complete.
+- A composed accepted package may source LoFTR from an isolated replacement
+  output root. Such a package must be validated with
+  `--method_output_override loftr_outdoor=<OUTPUT_DIR>` so the report records
+  the exact source summary, configuration, manifest, and result file.
 
 The current closure status is therefore:
 
 - Track B/C pipeline is logically closed and executable.
 - Track A file schema is closed for all methods.
 - Formal acceptance is now strict enough to reject false-positive runs.
-- The remaining evidence task after this spec is a LoFTR-only rerun under the
-  safe execution profile, not a redesign of the benchmark itself.
+- The accepted resize-aware LoFTR replacement has been completed. The current
+  closure task is to preserve its source explicitly in the composite validator
+  report rather than copying files into the original failed output directory.

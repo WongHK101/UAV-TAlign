@@ -42,6 +42,23 @@ def _parse_methods(raw: str) -> list[str]:
     return methods
 
 
+def _parse_method_output_overrides(values: list[str]) -> dict[str, Path]:
+    overrides: dict[str, Path] = {}
+    for raw in values:
+        method, separator, path_text = str(raw).partition("=")
+        method = method.strip()
+        path_text = path_text.strip()
+        if not separator or not method or not path_text:
+            raise ValueError(
+                "Each --method_output_override must use METHOD=OUTPUT_DIR syntax; "
+                f"received {raw!r}."
+            )
+        if method in overrides:
+            raise ValueError(f"Duplicate output override for method {method!r}.")
+        overrides[method] = Path(path_text).expanduser().resolve()
+    return overrides
+
+
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -60,6 +77,13 @@ def _load_jsonl(path: Path) -> list[dict]:
     return rows
 
 
+def _first_existing_path(*candidates: Path) -> Path:
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return candidates[0]
+
+
 def _record_check(report: dict, name: str, ok: bool, detail: str) -> None:
     entry = {"name": name, "ok": bool(ok), "detail": detail}
     report["checks"].append(entry)
@@ -74,6 +98,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--expect_manifest_sha256", default=DEFAULT_MANIFEST_SHA256)
     parser.add_argument("--expect_pair_count", type=int, default=6037)
     parser.add_argument("--expect_scene_count", type=int, default=15)
+    parser.add_argument(
+        "--method_output_override",
+        action="append",
+        default=[],
+        metavar="METHOD=OUTPUT_DIR",
+        help=(
+            "Use a separately completed output package for one method while validating the "
+            "remaining methods from --output_dir. May be repeated."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -81,9 +115,22 @@ def main() -> None:
     args = parse_args()
     output_dir = args.output_dir.resolve()
     required_methods = _parse_methods(args.required_methods)
+    try:
+        method_output_overrides = _parse_method_output_overrides(args.method_output_override)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    unknown_overrides = sorted(set(method_output_overrides) - set(required_methods))
+    if unknown_overrides:
+        raise SystemExit(
+            "Output overrides were provided for methods outside --required_methods: "
+            + ", ".join(unknown_overrides)
+        )
     report = {
         "output_dir": str(output_dir),
         "required_methods": required_methods,
+        "method_output_overrides": {
+            method: str(path) for method, path in sorted(method_output_overrides.items())
+        },
         "checks": [],
         "failures": [],
         "artifacts": {},
@@ -106,9 +153,6 @@ def main() -> None:
     manifest_sha256 = str(manifest_info.get("manifest_sha256", ""))
     summary_num_pairs = int(summary.get("num_pairs", -1))
     summary_num_scenes = int(summary.get("num_scenes", -1))
-    summary_methods = list(summary.get("methods", [])) if isinstance(summary.get("methods", []), list) else []
-    method_summaries = summary.get("method_summaries", {}) if isinstance(summary.get("method_summaries", {}), dict) else {}
-
     _record_check(
         report,
         "manifest_sha256",
@@ -129,24 +173,80 @@ def main() -> None:
     )
 
     for method in required_methods:
+        method_output_dir = method_output_overrides.get(method, output_dir)
+        source_summary = summary
+        source_config = config
+        source_summary_path = summary_path
+        source_config_path = config_path
+        if method_output_dir != output_dir:
+            source_summary_path = method_output_dir / "main_experiment_summary.json"
+            source_config_path = method_output_dir / "experiment_config.json"
+            source_summary_exists = source_summary_path.is_file()
+            _record_check(
+                report,
+                f"{method}_override_summary_exists",
+                source_summary_exists,
+                str(source_summary_path),
+            )
+            if not source_summary_exists:
+                continue
+            source_summary = _load_json(source_summary_path)
+            source_config = _load_json(source_config_path) if source_config_path.is_file() else {}
+            source_manifest = source_summary.get("dataset_manifest", {})
+            source_manifest_sha256 = str(source_manifest.get("manifest_sha256", ""))
+            _record_check(
+                report,
+                f"{method}_override_manifest_sha256",
+                source_manifest_sha256 == args.expect_manifest_sha256,
+                f"expected={args.expect_manifest_sha256} actual={source_manifest_sha256}",
+            )
+            _record_check(
+                report,
+                f"{method}_override_num_pairs",
+                _int_value(source_summary.get("num_pairs", -1), default=-1) == int(args.expect_pair_count),
+                f"expected={args.expect_pair_count} actual={source_summary.get('num_pairs', -1)}",
+            )
+
+        source_summary_methods = (
+            list(source_summary.get("methods", []))
+            if isinstance(source_summary.get("methods", []), list)
+            else []
+        )
+        source_method_summaries = (
+            source_summary.get("method_summaries", {})
+            if isinstance(source_summary.get("method_summaries", {}), dict)
+            else {}
+        )
+        report["artifacts"].setdefault("method_sources", {})[method] = {
+            "output_dir": str(method_output_dir),
+            "summary_path": str(source_summary_path),
+            "config_path": str(source_config_path) if source_config_path.is_file() else None,
+            "is_override": method_output_dir != output_dir,
+        }
         _record_check(
             report,
             f"summary_declares_{method}",
-            method in summary_methods,
-            f"summary methods={summary_methods}",
+            method in source_summary_methods,
+            f"summary methods={source_summary_methods}",
         )
         _record_check(
             report,
             f"summary_has_method_summary_{method}",
-            method in method_summaries,
-            f"method_summaries keys={sorted(method_summaries.keys())}",
+            method in source_method_summaries,
+            f"method_summaries keys={sorted(source_method_summaries.keys())}",
         )
 
         if method == "uav_talign_full":
             scene_paths = {
-                "canonical_results_jsonl": output_dir / "uav_talign_full" / "results.jsonl",
-                "compat_scene_results_jsonl": output_dir / "uav_talign_full" / "scene_results.jsonl",
-                "compat_top_level_jsonl": output_dir / "uav_talign_full_scene_metrics_detailed.jsonl",
+                "canonical_results_jsonl": _first_existing_path(
+                    method_output_dir / "uav_talign_full" / "results.jsonl",
+                    method_output_dir / "uav_talign_full_results.jsonl",
+                ),
+                "compat_scene_results_jsonl": _first_existing_path(
+                    method_output_dir / "uav_talign_full" / "scene_results.jsonl",
+                    method_output_dir / "uav_talign_full_scene_results.jsonl",
+                ),
+                "compat_top_level_jsonl": method_output_dir / "uav_talign_full_scene_metrics_detailed.jsonl",
             }
             loaded_rows: dict[str, list[dict]] = {}
             for label, path in scene_paths.items():
@@ -193,7 +293,11 @@ def main() -> None:
                     "unique_scene_names": unique_scene_names,
                     "pair_ids": sorted(pair_ids),
                 }
-                summary_info = method_summaries.get(method, {}) if isinstance(method_summaries.get(method, {}), dict) else {}
+                summary_info = (
+                    source_method_summaries.get(method, {})
+                    if isinstance(source_method_summaries.get(method, {}), dict)
+                    else {}
+                )
                 _record_check(
                     report,
                     "uav_talign_full_summary_status_counts_match",
@@ -243,7 +347,10 @@ def main() -> None:
                     f"homography_available_count={homography_available_count} status_counts={status_counts}",
                 )
         else:
-            path = output_dir / method / "results.jsonl"
+            path = _first_existing_path(
+                method_output_dir / method / "results.jsonl",
+                method_output_dir / f"{method}_results.jsonl",
+            )
             exists = path.is_file()
             _record_check(report, f"{method}_results_exists", exists, str(path))
             if not exists:
@@ -265,7 +372,11 @@ def main() -> None:
                 len(rows) == int(args.expect_pair_count),
                 f"expected={args.expect_pair_count} actual={len(rows)} path={path}",
             )
-            summary_info = method_summaries.get(method, {}) if isinstance(method_summaries.get(method, {}), dict) else {}
+            summary_info = (
+                source_method_summaries.get(method, {})
+                if isinstance(source_method_summaries.get(method, {}), dict)
+                else {}
+            )
             _record_check(
                 report,
                 f"{method}_summary_status_counts_match",
@@ -290,10 +401,10 @@ def main() -> None:
                 homography_available_count > 0,
                 f"homography_available_count={homography_available_count} status_counts={status_counts}",
             )
-            if method == "loftr_outdoor" and isinstance(config, dict):
+            if method == "loftr_outdoor" and isinstance(source_config, dict):
                 report["artifacts"]["loftr_execution_profile"] = {
-                    "loftr_match_max_dim": _int_value(config.get("loftr_match_max_dim", 0), default=0),
-                    "loftr_use_amp": bool(config.get("loftr_use_amp", False)),
+                    "loftr_match_max_dim": _int_value(source_config.get("loftr_match_max_dim", 0), default=0),
+                    "loftr_use_amp": bool(source_config.get("loftr_use_amp", False)),
                 }
 
     ok = not report["failures"]
