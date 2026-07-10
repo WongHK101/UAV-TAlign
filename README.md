@@ -76,8 +76,9 @@ with the following key package versions:
 - timm `1.0.26`
 - poselib `2.0.5`
 
-The reference runtime is Linux with CUDA. The server launcher scripts under
-`scripts/` assume a Bash-compatible shell.
+The reference runtime is Linux with CUDA. The repository now includes both
+Bash launchers for Linux-like servers and PowerShell launchers for the current
+Windows 4090 host.
 
 ## Installation
 
@@ -251,6 +252,18 @@ For the default main comparison set, use:
 sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,uav_talign_full
 ```
 
+### Windows 4090 host shortcut
+
+On the currently audited Windows host, the runnable Conda environment is the
+prefix environment `G:\UAV-TAlign\uav_talign_envs\uav-talign-e10a8be-py310`.
+Use the launcher below instead of assuming a named `uav-talign` environment:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\server_run_prcv_main_12k_windows.ps1 `
+  -DatasetRoot G:\UAV-TAlign\UAV-TAlign-12K `
+  -OfficialXoftrCkpt <PATH_TO_WEIGHTS_XOFTR_640_CKPT>
+```
+
 ## Reproducibility Notes
 
 - `run_prcv_main_experiment.py` and `run_prcv_smoke_test.py` both enforce path
@@ -261,6 +274,10 @@ sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,ua
   path, SHA256 hash, valid pair count, and excluded pair count.
 - The server launcher scripts now derive `REPO_ROOT` from their own location by
   default, so they are not tied to a specific username or absolute server path.
+- The Bash launchers accept `ENV_PREFIX=/path/to/conda-prefix` when a named
+  Conda environment is unavailable.
+- The Windows launchers capture stdout and stderr into separate `_launcher`
+  logs and validate the output package before returning success.
 - `run_prcv_main_experiment.py` supports `--resume true` and `--seed <int>` for
   resumable and reproducible runs.
 - `run_prcv_smoke_test.py` uses a fixed smoke subset defined in

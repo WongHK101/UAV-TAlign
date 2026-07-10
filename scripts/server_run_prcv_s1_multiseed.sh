@@ -8,6 +8,7 @@ REPO_ROOT="${REPO_ROOT:-$DEFAULT_REPO_ROOT}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/outputs}"
 CONDA_BIN="${CONDA_BIN:-$HOME/anaconda3/bin/conda}"
 ENV_NAME="${ENV_NAME:-uav-talign}"
+ENV_PREFIX="${ENV_PREFIX:-}"
 GPU0_IDLE_MEM_MAX_MB="${GPU0_IDLE_MEM_MAX_MB:-1024}"
 GPU0_IDLE_UTIL_MAX="${GPU0_IDLE_UTIL_MAX:-15}"
 GPU0_WAIT_TIMEOUT_MIN="${GPU0_WAIT_TIMEOUT_MIN:-30}"
@@ -19,7 +20,7 @@ LOG_DIR="$LOG_ROOT/_launcher"
 LOG_FILE="$LOG_DIR/launcher.log"
 SUMMARY_FILE="$LOG_DIR/summary.txt"
 
-SCENE_NAMES="01_day_grayscale_wide_substation_power_lines_50,02_day_grayscale_zoom_substation_power_lines_50,03_night_grayscale_wide_substation_power_lines_45,04_night_grayscale_zoom_substation_power_lines_45,07_day_grayscale_transmission_tower_102,08_night_grayscale_urban_22,13_lowlight_pseudocolor_road_21,14_lowlight_pseudocolor_transmission_tower_18"
+SCENE_NAMES="01_day_grayscale_wide_substation_power_lines_50,02_day_grayscale_zoom_substation_power_lines_50,03_night_grayscale_wide_substation_power_lines_45,04_night_grayscale_zoom_substation_power_lines_45,07_day_grayscale_transmission_tower_102,08_night_grayscale_urban_422,13_lowlight_pseudocolor_road_469,14_lowlight_pseudocolor_transmission_tower_18"
 
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$LOG_FILE") 2>&1
@@ -39,6 +40,14 @@ log() {
 
 append_summary() {
   printf '%s\n' "$*" >> "$SUMMARY_FILE"
+}
+
+conda_run_python() {
+  if [[ -n "$ENV_PREFIX" ]]; then
+    "$CONDA_BIN" run -p "$ENV_PREFIX" python "$@"
+  else
+    "$CONDA_BIN" run -n "$ENV_NAME" python "$@"
+  fi
 }
 
 gpu_snapshot() {
@@ -159,8 +168,7 @@ run_seed() {
   log "${stage_name}: output_root=$stage_root"
 
   CUDA_VISIBLE_DEVICES=0 \
-  "$CONDA_BIN" run -n "$ENV_NAME" \
-    python "$REPO_ROOT/run_prcv_main_experiment.py" \
+  conda_run_python "$REPO_ROOT/run_prcv_main_experiment.py" \
     --dataset_root "$REPO_ROOT/UAV-TAlign-1K" \
     --output_root "$stage_root" \
     --methods "uav_talign_full" \
@@ -209,6 +217,8 @@ main() {
   append_summary "window_tag=$WINDOW_TAG"
   append_summary "repo_root=$REPO_ROOT"
   append_summary "output_root=$OUTPUT_ROOT"
+  append_summary "env_name=$ENV_NAME"
+  append_summary "env_prefix=$ENV_PREFIX"
   append_summary "scene_names=$SCENE_NAMES"
   append_summary "seeds=$SEEDS"
 

@@ -123,6 +123,13 @@ def _write_json(path: Path, payload: Dict[str, object]) -> None:
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _write_jsonl_records(path: Path, records: Sequence[Dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as handle:
+        for record in records:
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
 def _file_sha256(path: Path, chunk_size: int = 1 << 20) -> str | None:
     if not path.exists() or not path.is_file():
         return None
@@ -710,6 +717,8 @@ def main() -> None:
         method_root = output_root / "uav_talign_full"
         method_root.mkdir(parents=True, exist_ok=True)
         jsonl_path = method_root / "results.jsonl"
+        compat_scene_jsonl_path = method_root / "scene_results.jsonl"
+        compat_top_level_jsonl_path = output_root / "uav_talign_full_scene_metrics_detailed.jsonl"
         scene_records, seen_scene_keys = _resume_records(
             jsonl_path,
             key_builder=lambda record: _scene_key(str(record.get("scene_name", ""))),
@@ -758,6 +767,8 @@ def main() -> None:
             _append_jsonl(jsonl_path, record)
             _cleanup_torch()
         _write_json(method_root / "results.json", {"records": scene_records})
+        _write_jsonl_records(compat_scene_jsonl_path, scene_records)
+        _write_jsonl_records(compat_top_level_jsonl_path, scene_records)
         method_summaries["uav_talign_full"] = _uav_talign_method_summary(scene_records)
 
     final_summary = {
