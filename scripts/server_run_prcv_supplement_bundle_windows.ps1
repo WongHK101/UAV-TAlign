@@ -146,7 +146,7 @@ if (-not $PythonExe) {
 $PythonExe = Require-ExistingPath -PathValue $PythonExe -Label "PythonExe"
 
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $RepoRoot "outputs"
+    $OutputRoot = Join-Path (Split-Path $RepoRoot -Parent) "runs"
 }
 $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
 $null = New-Item -ItemType Directory -Force -Path $OutputRoot

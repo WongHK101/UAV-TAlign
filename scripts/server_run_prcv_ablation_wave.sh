@@ -5,7 +5,7 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="${REPO_ROOT:-$DEFAULT_REPO_ROOT}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-$REPO_ROOT/outputs}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-$(dirname "$REPO_ROOT")/runs}"
 CONDA_BIN="${CONDA_BIN:-$HOME/anaconda3/bin/conda}"
 ENV_NAME="${ENV_NAME:-uav-talign}"
 ENV_PREFIX="${ENV_PREFIX:-}"

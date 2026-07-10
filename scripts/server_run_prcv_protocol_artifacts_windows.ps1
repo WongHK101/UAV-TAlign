@@ -81,14 +81,21 @@ if (-not $RepoRoot) {
 $RepoRoot = Require-ExistingPath -PathValue $RepoRoot -Label "RepoRoot"
 
 if (-not $InputDir) {
-    $InputDir = Join-Path $RepoRoot "outputs\ipt_p0c_12k_main"
+    throw "InputDir is required. Pass the immutable main-run output directory explicitly."
 }
 $InputDir = Require-ExistingPath -PathValue $InputDir -Label "InputDir"
 
 if (-not $OutputDir) {
-    $OutputDir = Join-Path $RepoRoot "outputs\ipt_p0d_protocol_closure"
+    $RunsRoot = Join-Path (Split-Path $RepoRoot -Parent) "runs"
+    $OutputDir = Join-Path $RunsRoot "ipt_p0d_protocol_closure_$WindowTag"
 }
 $OutputDir = [System.IO.Path]::GetFullPath($OutputDir)
+if (Test-Path $OutputDir) {
+    $existingItems = @(Get-ChildItem -LiteralPath $OutputDir -Force -ErrorAction SilentlyContinue)
+    if ($existingItems.Count -gt 0) {
+        throw "OutputDir already contains files: $OutputDir"
+    }
+}
 $null = New-Item -ItemType Directory -Force -Path $OutputDir
 
 if (-not $EnvPrefix) {

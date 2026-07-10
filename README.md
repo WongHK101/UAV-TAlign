@@ -228,7 +228,7 @@ python run_uav_talign_rectification.py \
 python run_prcv_smoke_test.py \
   --dataset_root /path/to/UAV-TAlign-1K-Lite \
   --manifest_path /path/to/subset_manifest.json \
-  --output_root /path/to/outputs/prcv_smoke_test \
+  --output_root /path/to/runs/prcv_smoke_test_<timestamp> \
   --methods sift_ransac,akaze_ransac,loftr_outdoor,roma_outdoor,xoftr_official,raw_minima,uav_talign_full \
   --device cuda \
   --official_xoftr_ckpt /path/to/weights_xoftr_640.ckpt
@@ -240,7 +240,7 @@ python run_prcv_smoke_test.py \
 python run_prcv_main_experiment.py \
   --dataset_root /path/to/UAV-TAlign-12K \
   --manifest_path manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json \
-  --output_root /path/to/outputs/prcv_main_experiment \
+  --output_root /path/to/runs/prcv_main_experiment_<timestamp> \
   --methods raw_minima,uav_talign_full \
   --device cuda \
   --seed 0
@@ -264,6 +264,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\server_run_prcv_main_12k_wind
   -OfficialXoftrCkpt <PATH_TO_WEIGHTS_XOFTR_640_CKPT>
 ```
 
+The Windows launcher defaults to a unique timestamped directory under the
+sibling `G:\UAV-TAlign\runs` tree. It does not write run artifacts into the
+source repository.
+
 ## Reproducibility Notes
 
 - `run_prcv_main_experiment.py` and `run_prcv_smoke_test.py` both enforce path
@@ -278,6 +282,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\server_run_prcv_main_12k_wind
   Conda environment is unavailable.
 - The Windows launchers capture stdout and stderr into separate `_launcher`
   logs and validate the output package before returning success.
+- A main batch and an independently completed method replacement can be
+  validated together with `scripts/check_prcv_main_outputs.py` and repeated
+  `--method_output_override METHOD=OUTPUT_DIR` arguments.
 - `run_prcv_main_experiment.py` supports `--resume true` and `--seed <int>` for
   resumable and reproducible runs.
 - `run_prcv_smoke_test.py` uses a fixed smoke subset defined in

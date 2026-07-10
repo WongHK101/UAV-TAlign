@@ -108,9 +108,16 @@ if (-not $EnvPrefix) {
 $EnvPrefix = Require-ExistingPath -PathValue $EnvPrefix -Label "EnvPrefix"
 
 if (-not $OutputRoot) {
-    $OutputRoot = Join-Path $RepoRoot "outputs\ipt_p0c_12k_main"
+    $RunsRoot = Join-Path (Split-Path $RepoRoot -Parent) "runs"
+    $OutputRoot = Join-Path $RunsRoot "ipt_p0c_12k_main_$WindowTag"
 }
 $OutputRoot = [System.IO.Path]::GetFullPath($OutputRoot)
+if ((Test-Path $OutputRoot) -and -not $Resume) {
+    $existingItems = @(Get-ChildItem -LiteralPath $OutputRoot -Force -ErrorAction SilentlyContinue)
+    if ($existingItems.Count -gt 0) {
+        throw "OutputRoot already contains files and -Resume is false: $OutputRoot"
+    }
+}
 $null = New-Item -ItemType Directory -Force -Path $OutputRoot
 
 $CondaCommand = Resolve-CondaCommand -RequestedPath $CondaExe
