@@ -5,11 +5,14 @@ import csv
 import hashlib
 import json
 import math
+import sys
 from pathlib import Path
 from statistics import mean
 
 import cv2
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from utils.minima_match_utils import homography_pair_displacement_summary, normalize_homography_matrix
 from utils.rectification_utils import score_edge_overlap_f1, score_gradient_ncc

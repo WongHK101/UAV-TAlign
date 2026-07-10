@@ -3,10 +3,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import sys
 from pathlib import Path
 from statistics import mean, median
 
 import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from utils.minima_match_utils import (
     homography_pair_displacement_summary,
