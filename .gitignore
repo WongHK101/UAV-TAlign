@@ -22,6 +22,7 @@ out/
 rectified/
 prepared/
 review_artifacts/
+tmp/
 
 # Internal drafting and writing handoff materials
 /docs/
@@ -55,3 +56,8 @@ third_party/MINIMA/third_party/**/*.jpg
 third_party/MINIMA/third_party/**/*.jpeg
 third_party/MINIMA/third_party/**/*.png
 third_party/MINIMA/third_party/**/*.gif
+
+# Restrictive optional components are not redistributed by this repository.
+third_party/MINIMA/third_party/LoFTR_minima/third_party/SuperGluePretrainedNetwork/
+third_party/MINIMA/third_party/glue_factory_minima/gluefactory_nonfree/
+third_party/MINIMA/third_party/LightGlue/lightglue/superpoint.py

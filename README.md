@@ -305,3 +305,17 @@ the formal output uses:
 `pass_with_warning` is reserved for weak-baseline or high-modality cases that
 still satisfy the warning-side QA guards on accepted ratio, stability,
 gradient/edge quality, and severe-outlier counts.
+
+## Licensing
+
+- Original UAV-TAlign software authored by Guangxi University is licensed
+  under the Apache License 2.0. See `LICENSE` and `NOTICE`.
+- UAV-TAlign-12K data, project-authored documentation, manifests, and figures
+  are licensed under Creative Commons Attribution 4.0 International
+  (CC BY 4.0). See `LICENSE-CONTENT.md`.
+- Files under `third_party/` remain under their respective upstream licenses.
+  See `THIRD_PARTY_NOTICES.md` and the license files distributed with each
+  component.
+- Restrictively licensed SuperPoint/SuperGlue implementations are not
+  redistributed. Optional MINIMA branches that require them must be installed
+  directly from their upstream sources under the applicable upstream terms.
