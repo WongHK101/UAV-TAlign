@@ -72,7 +72,15 @@ def load_loftr(args, test_orginal_megadepth=False):
 
 
 def load_sp_lg(args, test_orginal_megadepth=False):
-    from third_party.LightGlue.lightglue import LightGlue, SuperPoint
+    try:
+        from third_party.LightGlue.lightglue import LightGlue, SuperPoint
+    except ImportError as exc:
+        raise RuntimeError(
+            "The optional MINIMA-LightGlue branch requires a restrictively "
+            "licensed SuperPoint implementation that UAV-TAlign does not "
+            "redistribute. Install it from the upstream project and comply "
+            "with its license before enabling this branch."
+        ) from exc
     from third_party.LightGlue.lightglue.utils import rbd
     if test_orginal_megadepth:
         from src.config.default_for_megadepth_sparse import get_cfg_defaults
