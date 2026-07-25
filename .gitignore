@@ -15,6 +15,7 @@ WORKLOG.md
 # Runtime outputs and datasets
 UAV-TAlign-6K/
 UAV-TAlign-1K/
+UAV-TAlign-12K/
 data/
 runs/
 outputs/
@@ -23,6 +24,11 @@ rectified/
 prepared/
 review_artifacts/
 tmp/
+
+# Local tooling and literature-review assets
+/.tools/
+/reference papers/
+/drawio_repair_*.log
 
 # Internal drafting and writing handoff materials
 /docs/
