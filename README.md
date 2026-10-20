@@ -313,6 +313,8 @@ gradient/edge quality, and severe-outlier counts.
 - UAV-TAlign-12K data, project-authored documentation, manifests, and figures
   are licensed under Creative Commons Attribution 4.0 International
   (CC BY 4.0). See `LICENSE-CONTENT.md`.
+- The UAV-TAlign-12K dataset is jointly owned by Nanning Normal University
+  and Guangxi University.
 - Files under `third_party/` remain under their respective upstream licenses.
   See `THIRD_PARTY_NOTICES.md` and the license files distributed with each
   component.
