@@ -18,10 +18,7 @@ All formal results must reference the official manifest and its canonical SHA256
 | Official manifest | `manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json` |
 | Manifest canonical SHA256 | `a092f7ad00c6e02ead3bd39de5c246001f1d4bebbc4105ba715ef37bbb202c6c` |
 | Hash convention | canonical JSON (compact form, `sort_keys=True`, UTF-8) |
-| Candidate pairs | 6,039 / 12,078 images |
-| Official evaluation split | **6,037** valid pairs / **12,074** images |
-| Integrity-excluded pairs | 2 (scene 13, pair 000058 and 000080) |
-| Duplicate-hash diagnostic | 1 group (scene 05, thermal 000905/000906; record_only_not_excluded) |
+| Published benchmark | **6,037** pairs / **12,074** images |
 | Scenes | 15 |
 
 **Important:** the published SHA256 is computed over the canonical JSON serialization of the
@@ -53,7 +50,7 @@ field names are emitted by the runner so existing consumers continue to work.
 | `scene_name` | `scene_name` | string | full directory name |
 | `light_condition` | `light_condition` | string | `day` / `night` / `lowlight` |
 | `thermal_rendering` | `thermal_rendering` | string | `grayscale` / `pseudocolor` |
-| `view_type` | `view` | string | `wide` / `zoom` / `standard` |
+| `view_type` | `view` | string | `wide` / `zoom`; unset values are reported as `general` |
 | `scene_family` | `scene_label` | string | see scene_family enumeration below |
 | `pair_count` | `pair_count` | int | per-scene valid pair count |
 
@@ -74,11 +71,11 @@ field names are emitted by the runner so existing consumers continue to work.
 | `grayscale` | 8 | 1,483 |
 | `pseudocolor` | 7 | 4,554 |
 
-**`view_type` semantics.** `wide` and `zoom` are the only single-variable controlled
-comparison in UAV-TAlign-12K: scenes 01–04 capture the same substation/power-line target
-in the same flight session under wide-angle and zoom-lens settings, day and night, with
-45–50 valid pairs each. `standard` covers the remaining 11 scenes (5,847 pairs) under
-regular UAV nadir/oblique viewpoints.
+**`view_type` semantics.** Scenes 01–04 provide wide/zoom substation and power-line
+comparisons by day and night, with 45–50 pairs each. The other 11 scenes (5,847 pairs)
+are reported as `general`. The frozen manifest leaves their `view` field unset;
+reporting code maps that value to `general`. A scene can contain multiple acquisition
+segments; these labels do not assert a single flight or a single-variable intervention.
 
 ---
 
@@ -135,6 +132,15 @@ method must contain at least:
 **Required main metrics.**
 `OK / N` ↑ · `H availability (%)` ↑ · `mean inlier ratio` ↑ · `mean coverage` ↑ ·
 `median reprojection error` ↓ · `runtime / pair (s)` ↓
+
+The shared evaluator measures candidate-match occupancy on a 4x4 infrared grid
+and fits infrared-to-RGB homographies in original coordinates. Its reprojection
+statistic is the mean inlier residual for each pair, followed by a median across
+finite recorded pair values. RIFT2 retains its archived independent profile:
+RGB-to-infrared fitting after resizing, mean inlier residual in matching pixels,
+and occupancy of RGB inlier cells. Both use a 4x4 grid, but their support sets
+and coordinate scales differ. Availability and these fitting diagnostics should
+be reported together with the evaluated profile, not as one absolute accuracy rank.
 
 ### Track B — Scene-Level Retained Alignment
 

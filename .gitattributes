@@ -6,3 +6,13 @@
 *.json text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# Keep operational planning/history out of source release archives.
+/EXPERIMENT_PLAN.md export-ignore
+/BENCHMARK_CLOSURE_SPEC.md export-ignore
+/EXPERIMENT_PROVENANCE.md export-ignore
+/manifests/*.csv export-ignore
+/manifests/*_integrity_report.* export-ignore
+/third_party/MINIMA/data_engine export-ignore
+/third_party/MINIMA/train_orders export-ignore
+/third_party/MINIMA/third_party/glue_factory_minima/docs export-ignore

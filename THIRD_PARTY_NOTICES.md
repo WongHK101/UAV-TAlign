@@ -29,3 +29,9 @@ must obtain them from the upstream project and comply with its license.
 
 No top-level UAV-TAlign license overrides a third-party license or grants rights
 to third-party model weights.
+
+RIFT2 is installed separately from
+https://github.com/canyagmur/RIFT2-multimodal-matching-rotation-python.
+The release provides an evaluation wrapper, not a redistributed copy of that
+implementation. Its frozen source revision and installation command are in
+`README.md`; the external project's own terms remain applicable.

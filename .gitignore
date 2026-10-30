@@ -33,6 +33,7 @@ tmp/
 
 # Internal drafting and writing handoff materials
 /docs/
+/manuscript/
 /build_prcv_p0_drafts.py
 
 # Model weights and large binary assets

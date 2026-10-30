@@ -37,7 +37,7 @@ Infrared Physics & Technology version of UAV-TAlign.
 | `scene_id` | Numeric scene prefix parsed from `scene_name`. |
 | `light_condition` | `day`, `night`, or `lowlight`. |
 | `thermal_rendering` | `grayscale` or `pseudocolor`. |
-| `view_type` | `wide`, `zoom`, or `standard`. |
+| `view_type` | `wide` or `zoom`; unset legacy values are displayed as `general`. |
 | `scene_family` | Parsed scene family label. |
 | `pair_count` | Number of matched RGB-thermal pairs. |
 | `image_count` | `2 * pair_count`. |
@@ -67,22 +67,16 @@ to the manifest names.
 
 ## Official 12K Evaluation Manifest
 
-The journal-facing `UAV-TAlign-12K` benchmark uses an official
-integrity-checked evaluation manifest:
+The published `UAV-TAlign-12K` benchmark contains 6,037 pairs / 12,074 images.
+Its frozen evaluation manifest is:
 
 ```text
 manifests/UAV-TAlign-12K_official_valid_evaluation_manifest.json
 ```
 
-This manifest keeps the full collection identity while fixing the evaluation
-entry:
-
-- Full candidate collection: `6039` RGB-thermal pairs / `12078` images.
-- Official evaluation split: `6037` integrity-checked pairs / `12074` images.
-- Excluded pairs are recorded with internal reason `decode_invalid` and
-  paper-facing category `integrity_excluded`.
-- Duplicate-hash findings are diagnostics only unless a later release policy
-  explicitly changes them.
+The loader selects each scene's `valid_pair_ids`. Collection-level inventory
+and diagnostics remain in the historical manifest so its experimental identity
+does not change; they do not add images to the published benchmark.
 
 Use `--manifest_path` with evaluation runners so all 12K results share the same
 pair set and manifest hash.
@@ -114,12 +108,13 @@ python scripts\audit_uav_talign_dataset.py `
 The script is read-only with respect to dataset directories and writes all
 artifacts under the requested output root.
 
-To rebuild the official filtered evaluation manifest, use:
+The supplied manifest is the evaluation input. To audit a different collection,
+write a separate manifest rather than overwriting the supplied file:
 
 ```powershell
 python scripts\build_official_eval_manifest.py `
   --dataset_root UAV-TAlign-12K `
-  --output_root manifests `
+  --output_root ../runs/new_collection_manifest `
   --dataset_name UAV-TAlign-12K `
   --manifest_version ipt_valid_v1
 ```
